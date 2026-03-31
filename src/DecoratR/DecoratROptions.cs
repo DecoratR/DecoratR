@@ -90,6 +90,17 @@ public sealed class DecoratROptions
                 $"Type {openGenericDecoratorType.Name} must be an open generic type definition.",
                 nameof(openGenericDecoratorType));
         }
+
+        var implementsHandler = openGenericDecoratorType
+            .GetInterfaces()
+            .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>));
+
+        if (!implementsHandler)
+        {
+            throw new ArgumentException(
+                $"Type {openGenericDecoratorType.Name} must implement IRequestHandler<TRequest, TResponse>.",
+                nameof(openGenericDecoratorType));
+        }
     }
 
 

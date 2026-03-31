@@ -103,6 +103,15 @@ public class RegistrationTests
     }
 
     [Fact]
+    public void AddDecorator_throws_for_open_generic_that_does_not_implement_handler()
+    {
+        var options = new DecoratROptions();
+
+        Assert.Throws<ArgumentException>(() =>
+            options.AddDecorator(typeof(List<>)));
+    }
+
+    [Fact]
     public void Handlers_are_registered_as_transient()
     {
         var services = new ServiceCollection();
