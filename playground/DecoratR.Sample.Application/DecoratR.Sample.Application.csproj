@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="FluentValidation" Version="12.1.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\DecoratR.Abstractions\DecoratR.Abstractions.csproj" />
+        <ProjectReference Include="..\DecoratR.Sample.Domain\DecoratR.Sample.Domain.csproj" />
+    </ItemGroup>
+
+</Project>

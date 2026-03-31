@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DecoratR.Abstractions/DecoratR.Abstractions.csproj" />
+    <Project Path="src/DecoratR/DecoratR.csproj" />
+  </Folder>
+  <Folder Name="/playground/">
+    <Project Path="playground/DecoratR.Sample.Domain/DecoratR.Sample.Domain.csproj" />
+    <Project Path="playground/DecoratR.Sample.Application/DecoratR.Sample.Application.csproj" />
+    <Project Path="playground/DecoratR.Sample.Infrastructure/DecoratR.Sample.Infrastructure.csproj" />
+    <Project Path="playground/DecoratR.Sample.Presentation/DecoratR.Sample.Presentation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DecoratR.Tests/DecoratR.Tests.csproj" />
+  </Folder>
+</Solution>

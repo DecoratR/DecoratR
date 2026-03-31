@@ -1,0 +1,36 @@
+using DecoratR;
+using DecoratR.Sample.Application;
+using DecoratR.Sample.Infrastructure;
+using DecoratR.Sample.Presentation.Decorators;
+using DecoratR.Sample.Presentation.Endpoints;
+using FluentValidation;
+using Scalar.AspNetCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services
+    .AddDecoratR(options => options
+        .RegisterHandlersFromAssembly(ApplicationAssembly.Assembly)
+        .AddDecorator(typeof(ExceptionHandlingDecorator<,>))
+        .AddDecorator(typeof(RequestLoggingDecorator<,>))
+        .AddDecorator(typeof(PerformanceLoggingDecorator<,>))
+        .AddCommandDecorator(typeof(ValidationDecorator<,>))
+        .WithLifetime(ServiceLifetime.Scoped));
+
+builder.Services.AddValidatorsFromAssembly(ApplicationAssembly.Assembly);
+
+builder.Services.AddInfrastructure();
+builder.Services.AddOpenApi();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
+
+app.MapGreetEndpoint();
+app.MapGetGreetingEndpoint();
+
+app.Run();
