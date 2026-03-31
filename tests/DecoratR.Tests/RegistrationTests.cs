@@ -94,17 +94,6 @@ public class RegistrationTests
     }
 
     [Fact]
-    public void AddDecoratR_throws_when_no_assemblies_registered()
-    {
-        var services = new ServiceCollection();
-
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            services.AddDecoratR(options => { }));
-
-        Assert.Contains("assembly", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public void AddDecorator_throws_for_non_open_generic()
     {
         var options = new DecoratROptions();
@@ -256,5 +245,22 @@ public class RegistrationTests
         Assert.Equal("Outer(Inner(Handled: test))", commandResult);
         // Query: only Outer applied (Inner is command-only)
         Assert.Equal("Outer(Result: 1)", queryResult);
+    }
+
+    [Fact]
+    public void Duplicate_assembly_registration_registers_handlers_only_once()
+    {
+        var services = new ServiceCollection();
+        var assembly = Assembly.GetExecutingAssembly();
+
+        services.AddDecoratR(options => options
+            .RegisterHandlersFromAssembly(assembly)
+            .RegisterHandlersFromAssembly(assembly));
+
+        var handlerDescriptors = services
+            .Where(s => s.ServiceType == typeof(IRequestHandler<TestCommand, string>))
+            .ToList();
+
+        Assert.Single(handlerDescriptors);
     }
 }

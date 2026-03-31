@@ -16,7 +16,7 @@ public static class DecoratRRegistrationExtensions
 
         if (options.Assemblies.Count == 0)
         {
-            options.Assemblies.Add(Assembly.GetExecutingAssembly());
+            options.RegisterHandlersFromAssembly(Assembly.GetExecutingAssembly());
         }
 
         foreach (var assembly in options.Assemblies)
@@ -32,7 +32,7 @@ public static class DecoratRRegistrationExtensions
     private static void RegisterHandlersFromAssembly(
         IServiceCollection services, Assembly assembly, ServiceLifetime lifetime)
     {
-        foreach (var type in assembly.GetTypes())
+        foreach (var type in assembly.GetExportedTypes())
         {
             if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition)
                 continue;

@@ -5,7 +5,7 @@ namespace DecoratR;
 
 public sealed class DecoratROptions
 {
-    internal List<Assembly> Assemblies { get; } = [];
+    internal HashSet<Assembly> Assemblies { get; } = [];
     internal List<DecoratorRegistration> Decorators { get; } = [];
     internal ServiceLifetime Lifetime { get; private set; } = ServiceLifetime.Transient;
 
@@ -25,7 +25,11 @@ public sealed class DecoratROptions
     /// </summary>
     public DecoratROptions RegisterHandlersFromAssembly(params ReadOnlySpan<Assembly> assembly)
     {
-        Assemblies.AddRange(assembly);
+        foreach (var a in assembly)
+        {
+            Assemblies.Add(a);
+        }
+
         return this;
     }
 
@@ -85,7 +89,7 @@ public sealed class DecoratROptions
             throw new ArgumentException(
                 $"Type {openGenericDecoratorType.Name} must be an open generic type definition.",
                 nameof(openGenericDecoratorType));
-        } 
+        }
     }
 
 
