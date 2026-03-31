@@ -32,7 +32,7 @@ public static class DecoratRRegistrationExtensions
     private static void RegisterHandlersFromAssembly(
         IServiceCollection services, Assembly assembly, ServiceLifetime lifetime)
     {
-        foreach (var type in assembly.GetExportedTypes())
+        foreach (var type in assembly.GetTypes())
         {
             if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition)
                 continue;
