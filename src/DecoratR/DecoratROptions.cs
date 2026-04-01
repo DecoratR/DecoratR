@@ -7,6 +7,7 @@ public sealed class DecoratROptions
 {
     internal HashSet<Assembly> Assemblies { get; } = [];
     internal List<DecoratorRegistration> Decorators { get; } = [];
+    internal List<Action<IServiceCollection, ServiceLifetime>> HandlerRegistrations { get; } = [];
     internal ServiceLifetime Lifetime { get; private set; } = ServiceLifetime.Transient;
 
     /// <summary>
@@ -40,6 +41,33 @@ public sealed class DecoratROptions
     public DecoratROptions RegisterHandlersFromAssembly<T>()
     {
         Assemblies.Add(typeof(T).Assembly);
+        return this;
+    }
+
+    /// <summary>
+    /// Register a specific handler type without reflection.
+    /// Intended for use by the DecoratR source generator.
+    /// </summary>
+    public DecoratROptions AddHandler<TRequest, TResponse, THandler>()
+        where TRequest : IRequest<TResponse>
+        where THandler : class, IRequestHandler<TRequest, TResponse>
+    {
+        HandlerRegistrations.Add((services, lifetime) =>
+            services.Add(new ServiceDescriptor(
+                typeof(IRequestHandler<TRequest, TResponse>),
+                typeof(THandler),
+                lifetime)));
+        return this;
+    }
+
+    /// <summary>
+    /// Register handlers using a delegate that adds them to the service collection.
+    /// Intended for use with the DecoratR source generator's generated registration methods.
+    /// </summary>
+    public DecoratROptions RegisterHandlers(Action<IServiceCollection, ServiceLifetime> registrationAction)
+    {
+        ArgumentNullException.ThrowIfNull(registrationAction);
+        HandlerRegistrations.Add(registrationAction);
         return this;
     }
 

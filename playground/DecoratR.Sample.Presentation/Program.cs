@@ -1,4 +1,5 @@
 using DecoratR;
+using DecoratR.Generated;
 using DecoratR.Sample.Application;
 using DecoratR.Sample.Infrastructure;
 using DecoratR.Sample.Presentation.Decorators;
@@ -10,7 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddDecoratR(options => options
-        .RegisterHandlersFromAssembly(ApplicationAssembly.Assembly)
+        .RegisterHandlers(DecoratR_Sample_ApplicationRegistrations.RegisterHandlers)
         .AddDecorator(typeof(ExceptionHandlingDecorator<,>))
         .AddDecorator(typeof(RequestLoggingDecorator<,>))
         .AddDecorator(typeof(PerformanceLoggingDecorator<,>))

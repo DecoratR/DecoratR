@@ -2,10 +2,12 @@
 
     <ItemGroup>
         <PackageReference Include="FluentValidation" Version="12.1.1" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\DecoratR.Abstractions\DecoratR.Abstractions.csproj" />
+        <ProjectReference Include="..\..\src\DecoratR.Generator\DecoratR.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\DecoratR.Sample.Domain\DecoratR.Sample.Domain.csproj" />
     </ItemGroup>
 

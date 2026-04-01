@@ -1,5 +1,7 @@
 using System.Reflection;
 
+[assembly: DecoratR.GenerateHandlerRegistrations]
+
 namespace DecoratR.Sample.Application;
 
 public static class ApplicationAssembly

@@ -272,4 +272,91 @@ public class RegistrationTests
 
         Assert.Single(handlerDescriptors);
     }
+
+    [Fact]
+    public void AddHandler_registers_handler_without_reflection()
+    {
+        var services = new ServiceCollection();
+
+        services.AddDecoratR(options => options
+            .AddHandler<TestCommand, string, TestCommandHandler>());
+
+        var provider = services.BuildServiceProvider();
+        var handler = provider.GetService<IRequestHandler<TestCommand, string>>();
+
+        Assert.NotNull(handler);
+        Assert.IsType<TestCommandHandler>(handler);
+    }
+
+    [Fact]
+    public async Task AddHandler_handler_returns_correct_result()
+    {
+        var services = new ServiceCollection();
+
+        services.AddDecoratR(options => options
+            .AddHandler<TestCommand, string, TestCommandHandler>());
+
+        var provider = services.BuildServiceProvider();
+        var handler = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();
+
+        var result = await handler.HandleAsync(new TestCommand("test"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Handled: test", result);
+    }
+
+    [Fact]
+    public async Task AddHandler_with_decorators_applies_correctly()
+    {
+        var services = new ServiceCollection();
+
+        services.AddDecoratR(options => options
+            .AddHandler<TestCommand, string, TestCommandHandler>()
+            .AddHandler<TestQuery, string, TestQueryHandler>()
+            .AddDecorator(typeof(OuterDecorator<,>))
+            .AddCommandDecorator(typeof(InnerDecorator<,>)));
+
+        var provider = services.BuildServiceProvider();
+
+        var commandHandler = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();
+        var queryHandler = provider.GetRequiredService<IRequestHandler<TestQuery, string>>();
+
+        var commandResult = await commandHandler.HandleAsync(new TestCommand("test"), TestContext.Current.CancellationToken);
+        var queryResult = await queryHandler.HandleAsync(new TestQuery(1), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Outer(Inner(Handled: test))", commandResult);
+        Assert.Equal("Outer(Result: 1)", queryResult);
+    }
+
+    [Fact]
+    public void AddHandler_respects_configured_lifetime()
+    {
+        var services = new ServiceCollection();
+
+        services.AddDecoratR(options => options
+            .AddHandler<TestCommand, string, TestCommandHandler>()
+            .WithLifetime(ServiceLifetime.Scoped));
+
+        var descriptor = services.First(s =>
+            s.ServiceType == typeof(IRequestHandler<TestCommand, string>));
+
+        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
+    }
+
+    [Fact]
+    public void AddHandler_does_not_trigger_assembly_fallback()
+    {
+        var services = new ServiceCollection();
+
+        services.AddDecoratR(options => options
+            .AddHandler<TestCommand, string, TestCommandHandler>());
+
+        // Only the explicitly added handler should be registered,
+        // not handlers discovered via assembly scanning fallback
+        var handlerDescriptors = services
+            .Where(s => s.ServiceType.IsGenericType
+                && s.ServiceType.GetGenericTypeDefinition() == typeof(IRequestHandler<,>))
+            .ToList();
+
+        Assert.Single(handlerDescriptors);
+    }
 }

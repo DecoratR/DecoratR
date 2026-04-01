@@ -14,7 +14,7 @@ public static class DecoratRRegistrationExtensions
         var options = new DecoratROptions();
         configure(options);
 
-        if (options.Assemblies.Count == 0)
+        if (options.Assemblies.Count == 0 && options.HandlerRegistrations.Count == 0)
         {
             options.RegisterHandlersFromAssembly(Assembly.GetExecutingAssembly());
         }
@@ -22,6 +22,11 @@ public static class DecoratRRegistrationExtensions
         foreach (var assembly in options.Assemblies)
         {
             RegisterHandlersFromAssembly(services, assembly, options.Lifetime);
+        }
+
+        foreach (var registration in options.HandlerRegistrations)
+        {
+            registration(services, options.Lifetime);
         }
 
         ApplyDecorators(services, options.Decorators);
