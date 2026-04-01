@@ -2,6 +2,8 @@ using Microsoft.CodeAnalysis;
 
 namespace DecoratR.Generator;
 
+#pragma warning disable RS2008
+
 internal static class Diagnostics
 {
     public static readonly DiagnosticDescriptor NoHandlersFound = new(
