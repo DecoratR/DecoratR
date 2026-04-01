@@ -16,7 +16,7 @@ builder.Services
         .AddDecorator(typeof(ExceptionHandlingDecorator<,>))
         .AddDecorator(typeof(RequestLoggingDecorator<,>))
         .AddDecorator(typeof(PerformanceLoggingDecorator<,>))
-        .AddCommandDecorator(typeof(ValidationDecorator<,>))
+        .AddDecorator(typeof(ValidationDecorator<,>))
         .WithLifetime(ServiceLifetime.Scoped));
 
 builder.Services.AddValidatorsFromAssembly(ApplicationAssembly.Assembly);

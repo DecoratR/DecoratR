@@ -1,9 +1,9 @@
 namespace DecoratR.Tests;
 
 // Test request types
-public sealed record TestCommand(string Value) : ICommand<string>;
+public sealed record TestCommand(string Value) : IRequest;
 
-public sealed record TestQuery(int Id) : IQuery<string>;
+public sealed record TestQuery(int Id) : IRequest;
 
 // Test handlers
 public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
@@ -22,7 +22,7 @@ public sealed class TestQueryHandler : IRequestHandler<TestQuery, string>
 public sealed class TrackingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner)
     : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : IRequest
 {
     public static int CallCount;
 
@@ -39,7 +39,7 @@ public sealed class TrackingDecorator<TRequest, TResponse>(
 public sealed class OuterDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner)
     : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : IRequest
 {
     public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
@@ -51,7 +51,7 @@ public sealed class OuterDecorator<TRequest, TResponse>(
 public sealed class InnerDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner)
     : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : IRequest
 {
     public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
@@ -63,7 +63,7 @@ public sealed class InnerDecorator<TRequest, TResponse>(
 // Decorator that throws
 public sealed class ThrowingDecorator<TRequest, TResponse>
     : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : IRequest
 {
     public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException("Test exception");

@@ -1,33 +1,15 @@
 namespace DecoratR.Generator;
 
-internal enum RequestCategory
+internal sealed class HandlerMetadata(
+    string handlerFullyQualifiedName,
+    string requestFullyQualifiedName,
+    string responseFullyQualifiedName) : IEquatable<HandlerMetadata>
 {
-    Request,
-    Command,
-    Query
-}
+    public string HandlerFullyQualifiedName { get; } = handlerFullyQualifiedName;
 
-internal sealed class HandlerMetadata : IEquatable<HandlerMetadata>
-{
-    public HandlerMetadata(
-        string handlerFullyQualifiedName,
-        string requestFullyQualifiedName,
-        string responseFullyQualifiedName,
-        RequestCategory category)
-    {
-        HandlerFullyQualifiedName = handlerFullyQualifiedName;
-        RequestFullyQualifiedName = requestFullyQualifiedName;
-        ResponseFullyQualifiedName = responseFullyQualifiedName;
-        Category = category;
-    }
+    public string RequestFullyQualifiedName { get; } = requestFullyQualifiedName;
 
-    public string HandlerFullyQualifiedName { get; }
-
-    public string RequestFullyQualifiedName { get; }
-
-    public string ResponseFullyQualifiedName { get; }
-
-    public RequestCategory Category { get; }
+    public string ResponseFullyQualifiedName { get; } = responseFullyQualifiedName;
 
     public bool Equals(HandlerMetadata? other)
     {
@@ -41,7 +23,7 @@ internal sealed class HandlerMetadata : IEquatable<HandlerMetadata>
             return true;
         }
 
-        return HandlerFullyQualifiedName == other.HandlerFullyQualifiedName && RequestFullyQualifiedName == other.RequestFullyQualifiedName && ResponseFullyQualifiedName == other.ResponseFullyQualifiedName && Category == other.Category;
+        return HandlerFullyQualifiedName == other.HandlerFullyQualifiedName && RequestFullyQualifiedName == other.RequestFullyQualifiedName && ResponseFullyQualifiedName == other.ResponseFullyQualifiedName;
     }
 
     public override bool Equals(object? obj) => Equals(obj as HandlerMetadata);
@@ -54,7 +36,6 @@ internal sealed class HandlerMetadata : IEquatable<HandlerMetadata>
             hash = hash * 31 + HandlerFullyQualifiedName.GetHashCode();
             hash = hash * 31 + RequestFullyQualifiedName.GetHashCode();
             hash = hash * 31 + ResponseFullyQualifiedName.GetHashCode();
-            hash = hash * 31 + (int) Category;
             return hash;
         }
     }

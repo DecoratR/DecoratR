@@ -23,7 +23,7 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     public sealed record TestCommand(string Name) : ICommand<string>;
+                     public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
@@ -47,7 +47,7 @@ public class GeneratorTests
 
                      [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                     public sealed record TestCommand(string Name) : ICommand<string>;
+                     public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
@@ -61,7 +61,6 @@ public class GeneratorTests
         Assert.Equal(2, generatedTrees.Length); // attribute + registrations
         var registrations = generatedTrees.First(t => t.Contains("RegisterHandlers"));
 
-        Assert.Contains("Command handler", registrations);
         Assert.Contains("TestCommandHandler", registrations);
         Assert.Contains("TestCommand", registrations);
         Assert.Contains("AddHandler", registrations);
@@ -75,7 +74,7 @@ public class GeneratorTests
 
                      [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                     public sealed record TestQuery(string Id) : IQuery<string>;
+                     public sealed record TestQuery(string Id) : IRequest;
 
                      public sealed class TestQueryHandler : IRequestHandler<TestQuery, string>
                      {
@@ -87,7 +86,6 @@ public class GeneratorTests
         var (diagnostics, generatedTrees) = RunGenerator(source);
 
         var registrations = generatedTrees.First(t => t.Contains("RegisterHandlers"));
-        Assert.Contains("Query handler", registrations);
         Assert.Contains("TestQueryHandler", registrations);
     }
 
@@ -99,8 +97,8 @@ public class GeneratorTests
 
                      [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                     public sealed record Command1(string Name) : ICommand<string>;
-                     public sealed record Query1(string Id) : IQuery<int>;
+                     public sealed record Command1(string Name) : IRequest;
+                     public sealed record Query1(string Id) : IRequest;
 
                      public sealed class Command1Handler : IRequestHandler<Command1, string>
                      {
@@ -130,7 +128,7 @@ public class GeneratorTests
 
                      [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                     public sealed record TestCommand(string Name) : ICommand<string>;
+                     public sealed record TestCommand(string Name) : IRequest;
 
                      public abstract class AbstractHandler : IRequestHandler<TestCommand, string>
                      {
@@ -153,7 +151,7 @@ public class GeneratorTests
                      [assembly: DecoratR.GenerateHandlerRegistrations]
 
                      public class GenericHandler<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
-                         where TRequest : IRequest<TResponse>
+                         where TRequest : IRequest
                      {
                          public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
                              => throw new System.NotImplementedException();
@@ -173,7 +171,7 @@ public class GeneratorTests
 
                      [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                     public sealed record TestCommand(string Name) : ICommand<string>;
+                     public sealed record TestCommand(string Name) : IRequest;
 
                      internal sealed class InternalHandler : IRequestHandler<TestCommand, string>
                      {
@@ -213,7 +211,7 @@ public class GeneratorTests
 
                      [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                     public sealed record TestCommand(string Name) : ICommand<string>;
+                     public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
@@ -235,7 +233,7 @@ public class GeneratorTests
 
                      [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                     public sealed record TestCommand(string Name) : ICommand<string>;
+                     public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {

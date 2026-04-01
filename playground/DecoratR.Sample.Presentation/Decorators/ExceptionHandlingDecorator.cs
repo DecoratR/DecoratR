@@ -5,7 +5,7 @@ namespace DecoratR.Sample.Presentation.Decorators;
 internal sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner)
     : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : IRequest
 {
     public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {

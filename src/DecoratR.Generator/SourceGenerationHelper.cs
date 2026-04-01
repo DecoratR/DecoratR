@@ -42,7 +42,6 @@ namespace DecoratR
 
         foreach (var handler in handlers)
         {
-            sb.AppendLine($"            // {GetCategoryComment(handler.Category)}");
             sb.AppendLine($"            options.AddHandler<{handler.RequestFullyQualifiedName}, {handler.ResponseFullyQualifiedName}, {handler.HandlerFullyQualifiedName}>();");
         }
 
@@ -71,13 +70,4 @@ namespace DecoratR
         return sb.ToString();
     }
 
-    private static string GetCategoryComment(RequestCategory category)
-    {
-        switch (category)
-        {
-            case RequestCategory.Command: return "Command handler";
-            case RequestCategory.Query: return "Query handler";
-            default: return "Request handler";
-        }
-    }
 }

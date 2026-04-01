@@ -7,8 +7,6 @@ namespace DecoratR.Generator;
 public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 {
     private const string RequestHandlerMetadataName = "DecoratR.IRequestHandler`2";
-    private const string CommandMetadataName = "DecoratR.ICommand`1";
-    private const string QueryMetadataName = "DecoratR.IQuery`1";
     private const string AttributeMetadataName = "DecoratR.GenerateHandlerRegistrationsAttribute";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -113,34 +111,12 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             var requestType = iface.TypeArguments[0];
             var responseType = iface.TypeArguments[1];
 
-            var category = ClassifyRequest(requestType);
-
             return new HandlerMetadata(
                 symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                 requestType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                responseType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                category);
+                responseType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
         }
 
         return null;
-    }
-
-    private static RequestCategory ClassifyRequest(ITypeSymbol requestType)
-    {
-        foreach (var iface in requestType.AllInterfaces)
-        {
-            var name = iface.OriginalDefinition.ToDisplayString();
-            if (name == "DecoratR.ICommand<TResponse>")
-            {
-                return RequestCategory.Command;
-            }
-
-            if (name == "DecoratR.IQuery<TResponse>")
-            {
-                return RequestCategory.Query;
-            }
-        }
-
-        return RequestCategory.Request;
     }
 }

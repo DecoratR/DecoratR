@@ -131,46 +131,6 @@ public class RegistrationTests
     }
 
     [Fact]
-    public async Task AddCommandDecorator_applies_only_to_command_handlers()
-    {
-        var services = new ServiceCollection();
-        services.AddDecoratR(options => options
-            .RegisterHandlersFromAssembly<TestCommand>()
-            .AddCommandDecorator(typeof(OuterDecorator<,>)));
-
-        var provider = services.BuildServiceProvider();
-
-        var commandHandler = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();
-        var queryHandler = provider.GetRequiredService<IRequestHandler<TestQuery, string>>();
-
-        var commandResult = await commandHandler.HandleAsync(new TestCommand("test"), TestContext.Current.CancellationToken);
-        var queryResult = await queryHandler.HandleAsync(new TestQuery(1), TestContext.Current.CancellationToken);
-
-        Assert.Equal("Outer(Handled: test)", commandResult);
-        Assert.Equal("Result: 1", queryResult); // no decorator applied
-    }
-
-    [Fact]
-    public async Task AddQueryDecorator_applies_only_to_query_handlers()
-    {
-        var services = new ServiceCollection();
-        services.AddDecoratR(options => options
-            .RegisterHandlersFromAssembly<TestCommand>()
-            .AddQueryDecorator(typeof(OuterDecorator<,>)));
-
-        await using var provider = services.BuildServiceProvider();
-
-        var commandHandler = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();
-        var queryHandler = provider.GetRequiredService<IRequestHandler<TestQuery, string>>();
-
-        var commandResult = await commandHandler.HandleAsync(new TestCommand("test"), TestContext.Current.CancellationToken);
-        var queryResult = await queryHandler.HandleAsync(new TestQuery(1), TestContext.Current.CancellationToken);
-
-        Assert.Equal("Handled: test", commandResult); // no decorator applied
-        Assert.Equal("Outer(Result: 1)", queryResult);
-    }
-
-    [Fact]
     public async Task AddDecorator_with_predicate_filters_handlers()
     {
         var services = new ServiceCollection();
@@ -241,7 +201,7 @@ public class RegistrationTests
         services.AddDecoratR(options => options
             .RegisterHandlersFromAssembly<TestCommand>()
             .AddDecorator(typeof(OuterDecorator<,>))
-            .AddCommandDecorator(typeof(InnerDecorator<,>)));
+            .AddDecorator(typeof(InnerDecorator<,>)));
 
         var provider = services.BuildServiceProvider();
 
@@ -251,10 +211,8 @@ public class RegistrationTests
         var commandResult = await commandHandler.HandleAsync(new TestCommand("test"), TestContext.Current.CancellationToken);
         var queryResult = await queryHandler.HandleAsync(new TestQuery(1), TestContext.Current.CancellationToken);
 
-        // Command: both decorators applied
         Assert.Equal("Outer(Inner(Handled: test))", commandResult);
-        // Query: only Outer applied (Inner is command-only)
-        Assert.Equal("Outer(Result: 1)", queryResult);
+        Assert.Equal("Outer(Inner(Result: 1))", queryResult);
     }
 
     [Fact]
@@ -314,7 +272,7 @@ public class RegistrationTests
             .AddHandler<TestCommand, string, TestCommandHandler>()
             .AddHandler<TestQuery, string, TestQueryHandler>()
             .AddDecorator(typeof(OuterDecorator<,>))
-            .AddCommandDecorator(typeof(InnerDecorator<,>)));
+            .AddDecorator(typeof(InnerDecorator<,>)));
 
         var provider = services.BuildServiceProvider();
 
@@ -325,7 +283,7 @@ public class RegistrationTests
         var queryResult = await queryHandler.HandleAsync(new TestQuery(1), TestContext.Current.CancellationToken);
 
         Assert.Equal("Outer(Inner(Handled: test))", commandResult);
-        Assert.Equal("Outer(Result: 1)", queryResult);
+        Assert.Equal("Outer(Inner(Result: 1))", queryResult);
     }
 
     [Fact]

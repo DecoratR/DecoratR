@@ -51,7 +51,7 @@ public sealed class DecoratROptions
     /// Intended for use by the DecoratR source generator.
     /// </summary>
     public DecoratROptions AddHandler<TRequest, TResponse, THandler>()
-        where TRequest : IRequest<TResponse>
+        where TRequest : IRequest
         where THandler : class, IRequestHandler<TRequest, TResponse>
     {
         HandlerTypes.Add((typeof(IRequestHandler<TRequest, TResponse>), typeof(THandler)));
@@ -83,20 +83,6 @@ public sealed class DecoratROptions
         return this;
     }
 
-    /// <summary>
-    /// Add an open generic decorator that applies only to command handlers
-    /// (handlers for requests implementing <see cref="ICommand{TResponse}"/>).
-    /// </summary>
-    public DecoratROptions AddCommandDecorator(Type openGenericDecoratorType)
-        => AddDecorator(openGenericDecoratorType, IsCommand);
-
-    /// <summary>
-    /// Add an open generic decorator that applies only to query handlers
-    /// (handlers for requests implementing <see cref="IQuery{TResponse}"/>).
-    /// </summary>
-    public DecoratROptions AddQueryDecorator(Type openGenericDecoratorType)
-        => AddDecorator(openGenericDecoratorType, IsQuery);
-
     private static void ValidateOpenGeneric(Type openGenericDecoratorType)
     {
         if (!openGenericDecoratorType.IsGenericTypeDefinition)
@@ -117,14 +103,6 @@ public sealed class DecoratROptions
                 nameof(openGenericDecoratorType));
         }
     }
-
-    private static bool IsCommand(Type requestType)
-        => requestType.GetInterfaces().Any(i =>
-            i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICommand<>));
-
-    private static bool IsQuery(Type requestType)
-        => requestType.GetInterfaces().Any(i =>
-            i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IQuery<>));
 
     internal sealed record DecoratorRegistration(Type DecoratorType, Func<Type, bool>? RequestFilter = null);
 }

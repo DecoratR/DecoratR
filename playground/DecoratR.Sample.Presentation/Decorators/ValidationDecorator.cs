@@ -6,7 +6,7 @@ public sealed class ValidationDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
     IEnumerable<IValidator<TRequest>> validators)
     : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : IRequest
 {
     public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
