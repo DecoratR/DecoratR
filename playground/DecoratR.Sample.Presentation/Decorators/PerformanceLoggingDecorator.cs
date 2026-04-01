@@ -22,6 +22,7 @@ public class PerformanceLoggingDecorator<TRequest, TResponse>(
                 typeof(TRequest).Name, elapsed.TotalMilliseconds, SlowThreshold.TotalMilliseconds);
         }
 
+
         else
         {
             logger.LogInformation("{RequestType} completed in {ElapsedMs}ms",

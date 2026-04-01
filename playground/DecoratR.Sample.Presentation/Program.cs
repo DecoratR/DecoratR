@@ -6,6 +6,7 @@ using DecoratR.Sample.Presentation.Decorators;
 using DecoratR.Sample.Presentation.Endpoints;
 using FluentValidation;
 using Scalar.AspNetCore;
+using ServiceLifetime = DecoratR.ServiceLifetime;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +17,7 @@ builder.Services
         .AddDecorator(typeof(RequestLoggingDecorator<,>))
         .AddDecorator(typeof(PerformanceLoggingDecorator<,>))
         .AddCommandDecorator(typeof(ValidationDecorator<,>))
-        .WithLifetime(DecoratR.ServiceLifetime.Scoped));
+        .WithLifetime(ServiceLifetime.Scoped));
 
 builder.Services.AddValidatorsFromAssembly(ApplicationAssembly.Assembly);
 

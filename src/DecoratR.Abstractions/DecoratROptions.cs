@@ -5,8 +5,11 @@ namespace DecoratR;
 public sealed class DecoratROptions
 {
     internal HashSet<Assembly> Assemblies { get; } = [];
+
     internal List<DecoratorRegistration> Decorators { get; } = [];
+
     internal List<(Type ServiceType, Type ImplementationType)> HandlerTypes { get; } = [];
+
     internal ServiceLifetime Lifetime { get; private set; } = ServiceLifetime.Transient;
 
     /// <summary>

@@ -1,6 +1,7 @@
 using System.Reflection;
+using DecoratR;
 
-[assembly: DecoratR.GenerateHandlerRegistrations]
+[assembly: GenerateHandlerRegistrations]
 
 namespace DecoratR.Sample.Application;
 

@@ -2,6 +2,7 @@ namespace DecoratR.Tests;
 
 // Test request types
 public sealed record TestCommand(string Value) : ICommand<string>;
+
 public sealed record TestQuery(int Id) : IQuery<string>;
 
 // Test handlers
@@ -43,7 +44,7 @@ public sealed class OuterDecorator<TRequest, TResponse>(
     public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         var result = await inner.HandleAsync(request, cancellationToken);
-        return (TResponse)(object)$"Outer({result})";
+        return (TResponse) (object) $"Outer({result})";
     }
 }
 
@@ -55,7 +56,7 @@ public sealed class InnerDecorator<TRequest, TResponse>(
     public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         var result = await inner.HandleAsync(request, cancellationToken);
-        return (TResponse)(object)$"Inner({result})";
+        return (TResponse) (object) $"Inner({result})";
     }
 }
 

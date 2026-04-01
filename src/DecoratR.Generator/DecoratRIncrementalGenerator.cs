@@ -1,7 +1,3 @@
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -26,16 +22,16 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         var hasAttribute = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 AttributeMetadataName,
-                predicate: static (node, _) => true,
-                transform: static (ctx, _) => true)
+                static (node, _) => true,
+                static (ctx, _) => true)
             .Collect()
             .Select(static (items, _) => items.Length > 0);
 
         // Step 3: Find all handler classes
         var handlerMetadata = context.SyntaxProvider
             .CreateSyntaxProvider(
-                predicate: static (node, _) => node is ClassDeclarationSyntax,
-                transform: static (ctx, ct) => GetHandlerMetadata(ctx, ct))
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (ctx, ct) => GetHandlerMetadata(ctx, ct))
             .Where(static m => m is not null)
             .Select(static (m, _) => m!);
 
@@ -51,7 +47,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             var ((hasAttr, handlers), assemblyName) = source;
 
             if (!hasAttr)
+            {
                 return;
+            }
 
             if (handlers.Length == 0)
             {
@@ -80,27 +78,37 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     private static HandlerMetadata? GetHandlerMetadata(
         GeneratorSyntaxContext context, CancellationToken cancellationToken)
     {
-        var classDeclaration = (ClassDeclarationSyntax)context.Node;
+        var classDeclaration = (ClassDeclarationSyntax) context.Node;
 
         if (context.SemanticModel.GetDeclaredSymbol(classDeclaration, cancellationToken)
             is not INamedTypeSymbol symbol)
+        {
             return null;
+        }
 
         // Skip abstract, static, and open generic types
         if (symbol.IsAbstract || symbol.IsStatic)
+        {
             return null;
+        }
 
         if (symbol.TypeParameters.Length > 0)
+        {
             return null;
+        }
 
         // Find IRequestHandler<TRequest, TResponse> implementation
         foreach (var iface in symbol.AllInterfaces)
         {
             if (iface.OriginalDefinition.ToDisplayString() != "DecoratR.IRequestHandler<TRequest, TResponse>")
+            {
                 continue;
+            }
 
             if (iface.TypeArguments.Length != 2)
+            {
                 continue;
+            }
 
             var requestType = iface.TypeArguments[0];
             var responseType = iface.TypeArguments[1];
@@ -123,9 +131,14 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         {
             var name = iface.OriginalDefinition.ToDisplayString();
             if (name == "DecoratR.ICommand<TResponse>")
+            {
                 return RequestCategory.Command;
+            }
+
             if (name == "DecoratR.IQuery<TResponse>")
+            {
                 return RequestCategory.Query;
+            }
         }
 
         return RequestCategory.Request;

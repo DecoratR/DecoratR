@@ -1,7 +1,8 @@
 namespace DecoratR.Sample.Presentation.Decorators;
 
 public class RequestLoggingDecorator<TRequest, TResponse>(
-    IRequestHandler<TRequest, TResponse> inner, ILogger<RequestLoggingDecorator<TRequest, TResponse>> logger)
+    IRequestHandler<TRequest, TResponse> inner,
+    ILogger<RequestLoggingDecorator<TRequest, TResponse>> logger)
     : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {

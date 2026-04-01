@@ -5,18 +5,18 @@ namespace DecoratR.Generator;
 internal static class Diagnostics
 {
     public static readonly DiagnosticDescriptor NoHandlersFound = new(
-        id: "DCTR001",
-        title: "No handlers found",
-        messageFormat: "Assembly '{0}' has [GenerateHandlerRegistrations] but no IRequestHandler<,> implementations were found",
-        category: "DecoratR.Generator",
-        defaultSeverity: DiagnosticSeverity.Warning,
-        isEnabledByDefault: true);
+        "DCTR001",
+        "No handlers found",
+        "Assembly '{0}' has [GenerateHandlerRegistrations] but no IRequestHandler<,> implementations were found",
+        "DecoratR.Generator",
+        DiagnosticSeverity.Warning,
+        true);
 
     public static readonly DiagnosticDescriptor HandlersDiscovered = new(
-        id: "DCTR002",
-        title: "Handlers discovered",
-        messageFormat: "DecoratR source generator discovered {0} handler(s) in assembly '{1}'",
-        category: "DecoratR.Generator",
-        defaultSeverity: DiagnosticSeverity.Info,
-        isEnabledByDefault: true);
+        "DCTR002",
+        "Handlers discovered",
+        "DecoratR source generator discovered {0} handler(s) in assembly '{1}'",
+        "DecoratR.Generator",
+        DiagnosticSeverity.Info,
+        true);
 }

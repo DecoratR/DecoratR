@@ -1,5 +1,4 @@
 using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
 using MsDi = Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR;
@@ -8,8 +7,8 @@ public static class DecoratRRegistrationExtensions
 {
     private static readonly Type OpenHandlerInterface = typeof(IRequestHandler<,>);
 
-    public static IServiceCollection AddDecoratR(
-        this IServiceCollection services,
+    public static MsDi.IServiceCollection AddDecoratR(
+        this MsDi.IServiceCollection services,
         Action<DecoratROptions> configure)
     {
         var options = new DecoratROptions();
@@ -29,7 +28,7 @@ public static class DecoratRRegistrationExtensions
 
         foreach (var (serviceType, implementationType) in options.HandlerTypes)
         {
-            services.Add(new ServiceDescriptor(serviceType, implementationType, msLifetime));
+            services.Add(new MsDi.ServiceDescriptor(serviceType, implementationType, msLifetime));
         }
 
         ApplyDecorators(services, options.Decorators);
@@ -38,29 +37,32 @@ public static class DecoratRRegistrationExtensions
     }
 
     private static void RegisterHandlersFromAssembly(
-        IServiceCollection services, Assembly assembly, MsDi.ServiceLifetime lifetime)
+        MsDi.IServiceCollection services, Assembly assembly, MsDi.ServiceLifetime lifetime)
     {
         foreach (var type in assembly.GetTypes())
         {
             if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition)
+            {
                 continue;
+            }
 
             foreach (var @interface in type.GetInterfaces())
             {
                 if (!@interface.IsGenericType || @interface.GetGenericTypeDefinition() != OpenHandlerInterface)
+                {
                     continue;
+                }
 
-                services.Add(new ServiceDescriptor(@interface, type, lifetime));
+                services.Add(new MsDi.ServiceDescriptor(@interface, type, lifetime));
                 break;
             }
         }
     }
 
-    private static void ApplyDecorators(IServiceCollection services, List<DecoratROptions.DecoratorRegistration> decorators)
+    private static void ApplyDecorators(MsDi.IServiceCollection services, List<DecoratROptions.DecoratorRegistration> decorators)
     {
         var handlerServiceTypes = services
-            .Where(sd => sd.ServiceType.IsGenericType
-                         && sd.ServiceType.GetGenericTypeDefinition() == OpenHandlerInterface)
+            .Where(sd => sd.ServiceType.IsGenericType && sd.ServiceType.GetGenericTypeDefinition() == OpenHandlerInterface)
             .Select(sd => sd.ServiceType)
             .Distinct()
             .ToArray();
@@ -74,7 +76,9 @@ public static class DecoratRRegistrationExtensions
                 var requestType = genericArgs[0];
 
                 if (registration.RequestFilter is not null && !registration.RequestFilter(requestType))
+                {
                     continue;
+                }
 
                 var closedDecorator = registration.DecoratorType.MakeGenericType(genericArgs);
                 services.Decorate(handlerServiceType, closedDecorator);

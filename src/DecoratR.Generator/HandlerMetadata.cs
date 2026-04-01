@@ -1,5 +1,3 @@
-using System;
-
 namespace DecoratR.Generator;
 
 internal enum RequestCategory
@@ -11,11 +9,6 @@ internal enum RequestCategory
 
 internal sealed class HandlerMetadata : IEquatable<HandlerMetadata>
 {
-    public string HandlerFullyQualifiedName { get; }
-    public string RequestFullyQualifiedName { get; }
-    public string ResponseFullyQualifiedName { get; }
-    public RequestCategory Category { get; }
-
     public HandlerMetadata(
         string handlerFullyQualifiedName,
         string requestFullyQualifiedName,
@@ -28,14 +21,27 @@ internal sealed class HandlerMetadata : IEquatable<HandlerMetadata>
         Category = category;
     }
 
+    public string HandlerFullyQualifiedName { get; }
+
+    public string RequestFullyQualifiedName { get; }
+
+    public string ResponseFullyQualifiedName { get; }
+
+    public RequestCategory Category { get; }
+
     public bool Equals(HandlerMetadata? other)
     {
-        if (other is null) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return HandlerFullyQualifiedName == other.HandlerFullyQualifiedName
-            && RequestFullyQualifiedName == other.RequestFullyQualifiedName
-            && ResponseFullyQualifiedName == other.ResponseFullyQualifiedName
-            && Category == other.Category;
+        if (other is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return HandlerFullyQualifiedName == other.HandlerFullyQualifiedName && RequestFullyQualifiedName == other.RequestFullyQualifiedName && ResponseFullyQualifiedName == other.ResponseFullyQualifiedName && Category == other.Category;
     }
 
     public override bool Equals(object? obj) => Equals(obj as HandlerMetadata);
@@ -48,7 +54,7 @@ internal sealed class HandlerMetadata : IEquatable<HandlerMetadata>
             hash = hash * 31 + HandlerFullyQualifiedName.GetHashCode();
             hash = hash * 31 + RequestFullyQualifiedName.GetHashCode();
             hash = hash * 31 + ResponseFullyQualifiedName.GetHashCode();
-            hash = hash * 31 + (int)Category;
+            hash = hash * 31 + (int) Category;
             return hash;
         }
     }

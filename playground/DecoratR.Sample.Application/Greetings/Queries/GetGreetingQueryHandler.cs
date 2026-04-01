@@ -11,7 +11,9 @@ internal sealed class GetGreetingQueryHandler(IGreetingRepository repository)
         var existing = await repository.GetByNameAsync(query.Name, cancellationToken);
 
         if (existing is not null)
+        {
             return existing.Message;
+        }
 
         var greeting = Greeting.Create(query.Name);
         return greeting.Message;

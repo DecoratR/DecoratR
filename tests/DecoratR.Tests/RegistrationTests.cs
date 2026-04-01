@@ -354,8 +354,7 @@ public class RegistrationTests
         // Only the explicitly added handler should be registered,
         // not handlers discovered via assembly scanning fallback
         var handlerDescriptors = services
-            .Where(s => s.ServiceType.IsGenericType
-                && s.ServiceType.GetGenericTypeDefinition() == typeof(IRequestHandler<,>))
+            .Where(s => s.ServiceType.IsGenericType && s.ServiceType.GetGenericTypeDefinition() == typeof(IRequestHandler<,>))
             .ToList();
 
         Assert.Single(handlerDescriptors);
