@@ -38,22 +38,18 @@ namespace DecoratR
         sb.AppendLine($"    public static class {sanitizedName}Registrations");
         sb.AppendLine("    {");
         sb.AppendLine("        /// <summary>");
-        sb.AppendLine("        /// Registers all discovered handlers into the service collection.");
+        sb.AppendLine("        /// Registers all discovered handlers, replacing the need for runtime assembly scanning.");
         sb.AppendLine("        /// </summary>");
-        sb.AppendLine($"        public static void RegisterHandlers(");
-        sb.AppendLine($"            global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,");
-        sb.AppendLine($"            global::Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime)");
+        sb.AppendLine($"        public static global::DecoratR.DecoratROptions RegisterHandlers(this global::DecoratR.DecoratROptions options)");
         sb.AppendLine("        {");
 
         foreach (var handler in handlers)
         {
             sb.AppendLine($"            // {GetCategoryComment(handler.Category)}");
-            sb.AppendLine($"            services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
-            sb.AppendLine($"                typeof(global::DecoratR.IRequestHandler<{handler.RequestFullyQualifiedName}, {handler.ResponseFullyQualifiedName}>),");
-            sb.AppendLine($"                typeof({handler.HandlerFullyQualifiedName}),");
-            sb.AppendLine($"                lifetime));");
+            sb.AppendLine($"            options.AddHandler<{handler.RequestFullyQualifiedName}, {handler.ResponseFullyQualifiedName}, {handler.HandlerFullyQualifiedName}>();");
         }
 
+        sb.AppendLine("            return options;");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");

@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using MsDi = Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR.Tests;
 
@@ -199,7 +200,7 @@ public class RegistrationTests
         var descriptor = services.First(s =>
             s.ServiceType == typeof(IRequestHandler<TestCommand, string>));
 
-        Assert.Equal(ServiceLifetime.Transient, descriptor.Lifetime);
+        Assert.Equal(MsDi.ServiceLifetime.Transient, descriptor.Lifetime);
     }
 
     [Fact]
@@ -213,7 +214,7 @@ public class RegistrationTests
         var descriptor = services.First(s =>
             s.ServiceType == typeof(IRequestHandler<TestCommand, string>));
 
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
+        Assert.Equal(MsDi.ServiceLifetime.Scoped, descriptor.Lifetime);
     }
 
     [Fact]
@@ -339,7 +340,7 @@ public class RegistrationTests
         var descriptor = services.First(s =>
             s.ServiceType == typeof(IRequestHandler<TestCommand, string>));
 
-        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
+        Assert.Equal(MsDi.ServiceLifetime.Scoped, descriptor.Lifetime);
     }
 
     [Fact]

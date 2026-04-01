@@ -1,2 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="DecoratR" />
+        <InternalsVisibleTo Include="DecoratR.Tests" />
+    </ItemGroup>
+
 </Project>

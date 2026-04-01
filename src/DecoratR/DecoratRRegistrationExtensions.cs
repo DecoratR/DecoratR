@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using MsDi = Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR;
 
@@ -14,28 +15,30 @@ public static class DecoratRRegistrationExtensions
         var options = new DecoratROptions();
         configure(options);
 
-        if (options.Assemblies.Count == 0 && options.HandlerRegistrations.Count == 0)
+        var msLifetime = MapLifetime(options.Lifetime);
+
+        if (options.Assemblies.Count == 0 && options.HandlerTypes.Count == 0)
         {
             options.RegisterHandlersFromAssembly(Assembly.GetExecutingAssembly());
         }
 
         foreach (var assembly in options.Assemblies)
         {
-            RegisterHandlersFromAssembly(services, assembly, options.Lifetime);
+            RegisterHandlersFromAssembly(services, assembly, msLifetime);
         }
 
-        foreach (var registration in options.HandlerRegistrations)
+        foreach (var (serviceType, implementationType) in options.HandlerTypes)
         {
-            registration(services, options.Lifetime);
+            services.Add(new ServiceDescriptor(serviceType, implementationType, msLifetime));
         }
 
         ApplyDecorators(services, options.Decorators);
 
         return services;
     }
-    
+
     private static void RegisterHandlersFromAssembly(
-        IServiceCollection services, Assembly assembly, ServiceLifetime lifetime)
+        IServiceCollection services, Assembly assembly, MsDi.ServiceLifetime lifetime)
     {
         foreach (var type in assembly.GetTypes())
         {
@@ -52,7 +55,7 @@ public static class DecoratRRegistrationExtensions
             }
         }
     }
-    
+
     private static void ApplyDecorators(IServiceCollection services, List<DecoratROptions.DecoratorRegistration> decorators)
     {
         var handlerServiceTypes = services
@@ -78,4 +81,12 @@ public static class DecoratRRegistrationExtensions
             }
         }
     }
+
+    private static MsDi.ServiceLifetime MapLifetime(ServiceLifetime lifetime) => lifetime switch
+    {
+        ServiceLifetime.Transient => MsDi.ServiceLifetime.Transient,
+        ServiceLifetime.Scoped => MsDi.ServiceLifetime.Scoped,
+        ServiceLifetime.Singleton => MsDi.ServiceLifetime.Singleton,
+        _ => throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, null)
+    };
 }

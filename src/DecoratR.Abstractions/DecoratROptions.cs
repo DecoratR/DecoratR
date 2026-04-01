@@ -1,5 +1,4 @@
 using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR;
 
@@ -7,7 +6,7 @@ public sealed class DecoratROptions
 {
     internal HashSet<Assembly> Assemblies { get; } = [];
     internal List<DecoratorRegistration> Decorators { get; } = [];
-    internal List<Action<IServiceCollection, ServiceLifetime>> HandlerRegistrations { get; } = [];
+    internal List<(Type ServiceType, Type ImplementationType)> HandlerTypes { get; } = [];
     internal ServiceLifetime Lifetime { get; private set; } = ServiceLifetime.Transient;
 
     /// <summary>
@@ -52,22 +51,7 @@ public sealed class DecoratROptions
         where TRequest : IRequest<TResponse>
         where THandler : class, IRequestHandler<TRequest, TResponse>
     {
-        HandlerRegistrations.Add((services, lifetime) =>
-            services.Add(new ServiceDescriptor(
-                typeof(IRequestHandler<TRequest, TResponse>),
-                typeof(THandler),
-                lifetime)));
-        return this;
-    }
-
-    /// <summary>
-    /// Register handlers using a delegate that adds them to the service collection.
-    /// Intended for use with the DecoratR source generator's generated registration methods.
-    /// </summary>
-    public DecoratROptions RegisterHandlers(Action<IServiceCollection, ServiceLifetime> registrationAction)
-    {
-        ArgumentNullException.ThrowIfNull(registrationAction);
-        HandlerRegistrations.Add(registrationAction);
+        HandlerTypes.Add((typeof(IRequestHandler<TRequest, TResponse>), typeof(THandler)));
         return this;
     }
 
@@ -130,7 +114,6 @@ public sealed class DecoratROptions
                 nameof(openGenericDecoratorType));
         }
     }
-
 
     private static bool IsCommand(Type requestType)
         => requestType.GetInterfaces().Any(i =>

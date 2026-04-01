@@ -66,7 +66,7 @@ public class GeneratorTests
         Assert.Contains("Command handler", registrations);
         Assert.Contains("TestCommandHandler", registrations);
         Assert.Contains("TestCommand", registrations);
-        Assert.Contains("ServiceDescriptor", registrations);
+        Assert.Contains("AddHandler", registrations);
     }
 
     [Fact]

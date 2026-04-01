@@ -11,12 +11,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddDecoratR(options => options
-        .RegisterHandlers(DecoratR_Sample_ApplicationRegistrations.RegisterHandlers)
+        .RegisterHandlers()
         .AddDecorator(typeof(ExceptionHandlingDecorator<,>))
         .AddDecorator(typeof(RequestLoggingDecorator<,>))
         .AddDecorator(typeof(PerformanceLoggingDecorator<,>))
         .AddCommandDecorator(typeof(ValidationDecorator<,>))
-        .WithLifetime(ServiceLifetime.Scoped));
+        .WithLifetime(DecoratR.ServiceLifetime.Scoped));
 
 builder.Services.AddValidatorsFromAssembly(ApplicationAssembly.Assembly);
 
