@@ -1,5 +1,5 @@
 using System.Reflection;
-using MsDi = Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR;
 
@@ -7,14 +7,12 @@ public static class DecoratRRegistrationExtensions
 {
     private static readonly Type OpenHandlerInterface = typeof(IRequestHandler<,>);
 
-    public static MsDi.IServiceCollection AddDecoratR(
-        this MsDi.IServiceCollection services,
+    public static IServiceCollection AddDecoratR(
+        this IServiceCollection services,
         Action<DecoratROptions> configure)
     {
         var options = new DecoratROptions();
         configure(options);
-
-        var msLifetime = MapLifetime(options.Lifetime);
 
         if (options.Assemblies.Count == 0 && options.HandlerTypes.Count == 0)
         {
@@ -23,12 +21,12 @@ public static class DecoratRRegistrationExtensions
 
         foreach (var assembly in options.Assemblies)
         {
-            RegisterHandlersFromAssembly(services, assembly, msLifetime);
+            RegisterHandlersFromAssembly(services, assembly);
         }
 
         foreach (var (serviceType, implementationType) in options.HandlerTypes)
         {
-            services.Add(new MsDi.ServiceDescriptor(serviceType, implementationType, msLifetime));
+            services.Add(new ServiceDescriptor(serviceType, implementationType, ServiceLifetime.Transient));
         }
 
         ApplyDecorators(services, options.Decorators);
@@ -37,7 +35,7 @@ public static class DecoratRRegistrationExtensions
     }
 
     private static void RegisterHandlersFromAssembly(
-        MsDi.IServiceCollection services, Assembly assembly, MsDi.ServiceLifetime lifetime)
+        IServiceCollection services, Assembly assembly)
     {
         foreach (var type in assembly.GetTypes())
         {
@@ -53,13 +51,13 @@ public static class DecoratRRegistrationExtensions
                     continue;
                 }
 
-                services.Add(new MsDi.ServiceDescriptor(@interface, type, lifetime));
+                services.Add(new ServiceDescriptor(@interface, type, ServiceLifetime.Transient));
                 break;
             }
         }
     }
 
-    private static void ApplyDecorators(MsDi.IServiceCollection services, List<DecoratROptions.DecoratorRegistration> decorators)
+    private static void ApplyDecorators(IServiceCollection services, List<DecoratROptions.DecoratorRegistration> decorators)
     {
         var handlerServiceTypes = services
             .Where(sd => sd.ServiceType.IsGenericType && sd.ServiceType.GetGenericTypeDefinition() == OpenHandlerInterface)
@@ -86,11 +84,4 @@ public static class DecoratRRegistrationExtensions
         }
     }
 
-    private static MsDi.ServiceLifetime MapLifetime(ServiceLifetime lifetime) => lifetime switch
-    {
-        ServiceLifetime.Transient => MsDi.ServiceLifetime.Transient,
-        ServiceLifetime.Scoped => MsDi.ServiceLifetime.Scoped,
-        ServiceLifetime.Singleton => MsDi.ServiceLifetime.Singleton,
-        _ => throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, null)
-    };
 }

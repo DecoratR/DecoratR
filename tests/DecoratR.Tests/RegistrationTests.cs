@@ -1,6 +1,5 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
-using MsDi = Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR.Tests;
 
@@ -151,7 +150,7 @@ public class RegistrationTests
     }
 
     [Fact]
-    public void WithLifetime_defaults_to_transient()
+    public void Handlers_are_registered_as_transient_descriptor()
     {
         var services = new ServiceCollection();
         services.AddDecoratR(options =>
@@ -160,38 +159,7 @@ public class RegistrationTests
         var descriptor = services.First(s =>
             s.ServiceType == typeof(IRequestHandler<TestCommand, string>));
 
-        Assert.Equal(MsDi.ServiceLifetime.Transient, descriptor.Lifetime);
-    }
-
-    [Fact]
-    public void Handlers_are_registered_with_configured_lifetime()
-    {
-        var services = new ServiceCollection();
-        services.AddDecoratR(options => options
-            .RegisterHandlersFromAssembly<TestCommand>()
-            .WithLifetime(ServiceLifetime.Scoped));
-
-        var descriptor = services.First(s =>
-            s.ServiceType == typeof(IRequestHandler<TestCommand, string>));
-
-        Assert.Equal(MsDi.ServiceLifetime.Scoped, descriptor.Lifetime);
-    }
-
-    [Fact]
-    public void Scoped_handlers_return_same_instance_within_scope()
-    {
-        var services = new ServiceCollection();
-        services.AddDecoratR(options => options
-            .RegisterHandlersFromAssembly<TestCommand>()
-            .WithLifetime(ServiceLifetime.Scoped));
-
-        var provider = services.BuildServiceProvider();
-
-        using var scope = provider.CreateScope();
-        var handler1 = scope.ServiceProvider.GetRequiredService<IRequestHandler<TestCommand, string>>();
-        var handler2 = scope.ServiceProvider.GetRequiredService<IRequestHandler<TestCommand, string>>();
-
-        Assert.Same(handler1, handler2);
+        Assert.Equal(ServiceLifetime.Transient, descriptor.Lifetime);
     }
 
     [Fact]
@@ -287,21 +255,6 @@ public class RegistrationTests
 
         Assert.Equal("Outer(Inner(Handled: test))", commandResult);
         Assert.Equal("Outer(Inner(Result: 1))", queryResult);
-    }
-
-    [Fact]
-    public void AddHandlers_respects_configured_lifetime()
-    {
-        var services = new ServiceCollection();
-
-        services.AddDecoratR(options => options
-            .AddHandlers([(typeof(IRequestHandler<TestCommand, string>), typeof(TestCommandHandler))])
-            .WithLifetime(ServiceLifetime.Scoped));
-
-        var descriptor = services.First(s =>
-            s.ServiceType == typeof(IRequestHandler<TestCommand, string>));
-
-        Assert.Equal(MsDi.ServiceLifetime.Scoped, descriptor.Lifetime);
     }
 
     [Fact]

@@ -10,19 +10,6 @@ public sealed class DecoratROptions
 
     internal List<(Type ServiceType, Type ImplementationType)> HandlerTypes { get; } = [];
 
-    internal ServiceLifetime Lifetime { get; private set; } = ServiceLifetime.Transient;
-
-    /// <summary>
-    /// Set the <see cref="ServiceLifetime"/> for all discovered handlers.
-    /// Decorators automatically inherit the lifetime of the handler they wrap.
-    /// Defaults to <see cref="ServiceLifetime.Transient"/>.
-    /// </summary>
-    public DecoratROptions WithLifetime(ServiceLifetime lifetime)
-    {
-        Lifetime = lifetime;
-        return this;
-    }
-
     /// <summary>
     /// Scan the given assembly for types implementing <see cref="IRequestHandler{TRequest,TResponse}"/> and register them.
     /// </summary>
