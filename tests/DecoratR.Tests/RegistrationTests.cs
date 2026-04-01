@@ -233,12 +233,12 @@ public class RegistrationTests
     }
 
     [Fact]
-    public void AddHandler_registers_handler_without_reflection()
+    public void AddHandlers_registers_handler_without_reflection()
     {
         var services = new ServiceCollection();
 
         services.AddDecoratR(options => options
-            .AddHandler<TestCommand, string, TestCommandHandler>());
+            .AddHandlers([(typeof(IRequestHandler<TestCommand, string>), typeof(TestCommandHandler))]));
 
         var provider = services.BuildServiceProvider();
         var handler = provider.GetService<IRequestHandler<TestCommand, string>>();
@@ -248,12 +248,12 @@ public class RegistrationTests
     }
 
     [Fact]
-    public async Task AddHandler_handler_returns_correct_result()
+    public async Task AddHandlers_handler_returns_correct_result()
     {
         var services = new ServiceCollection();
 
         services.AddDecoratR(options => options
-            .AddHandler<TestCommand, string, TestCommandHandler>());
+            .AddHandlers([(typeof(IRequestHandler<TestCommand, string>), typeof(TestCommandHandler))]));
 
         var provider = services.BuildServiceProvider();
         var handler = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();
@@ -264,13 +264,16 @@ public class RegistrationTests
     }
 
     [Fact]
-    public async Task AddHandler_with_decorators_applies_correctly()
+    public async Task AddHandlers_with_decorators_applies_correctly()
     {
         var services = new ServiceCollection();
 
         services.AddDecoratR(options => options
-            .AddHandler<TestCommand, string, TestCommandHandler>()
-            .AddHandler<TestQuery, string, TestQueryHandler>()
+            .AddHandlers(
+            [
+                (typeof(IRequestHandler<TestCommand, string>), typeof(TestCommandHandler)),
+                (typeof(IRequestHandler<TestQuery, string>), typeof(TestQueryHandler))
+            ])
             .AddDecorator(typeof(OuterDecorator<,>))
             .AddDecorator(typeof(InnerDecorator<,>)));
 
@@ -287,12 +290,12 @@ public class RegistrationTests
     }
 
     [Fact]
-    public void AddHandler_respects_configured_lifetime()
+    public void AddHandlers_respects_configured_lifetime()
     {
         var services = new ServiceCollection();
 
         services.AddDecoratR(options => options
-            .AddHandler<TestCommand, string, TestCommandHandler>()
+            .AddHandlers([(typeof(IRequestHandler<TestCommand, string>), typeof(TestCommandHandler))])
             .WithLifetime(ServiceLifetime.Scoped));
 
         var descriptor = services.First(s =>
@@ -302,12 +305,12 @@ public class RegistrationTests
     }
 
     [Fact]
-    public void AddHandler_does_not_trigger_assembly_fallback()
+    public void AddHandlers_does_not_trigger_assembly_fallback()
     {
         var services = new ServiceCollection();
 
         services.AddDecoratR(options => options
-            .AddHandler<TestCommand, string, TestCommandHandler>());
+            .AddHandlers([(typeof(IRequestHandler<TestCommand, string>), typeof(TestCommandHandler))]));
 
         // Only the explicitly added handler should be registered,
         // not handlers discovered via assembly scanning fallback

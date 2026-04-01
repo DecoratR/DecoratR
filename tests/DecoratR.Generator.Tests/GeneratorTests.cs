@@ -59,11 +59,11 @@ public class GeneratorTests
         var (diagnostics, generatedTrees) = RunGenerator(source);
 
         Assert.Equal(2, generatedTrees.Length); // attribute + registrations
-        var registrations = generatedTrees.First(t => t.Contains("RegisterHandlers"));
+        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
 
         Assert.Contains("TestCommandHandler", registrations);
         Assert.Contains("TestCommand", registrations);
-        Assert.Contains("AddHandler", registrations);
+        Assert.Contains("IRequestHandler", registrations);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class GeneratorTests
 
         var (diagnostics, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("RegisterHandlers"));
+        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
         Assert.Contains("TestQueryHandler", registrations);
     }
 
@@ -115,7 +115,7 @@ public class GeneratorTests
 
         var (diagnostics, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("RegisterHandlers"));
+        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
         Assert.Contains("Command1Handler", registrations);
         Assert.Contains("Query1Handler", registrations);
     }
@@ -182,7 +182,7 @@ public class GeneratorTests
 
         var (diagnostics, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("RegisterHandlers"));
+        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
         Assert.Contains("InternalHandler", registrations);
     }
 
@@ -200,7 +200,7 @@ public class GeneratorTests
         var (diagnostics, generatedTrees) = RunGenerator(source);
 
         Assert.Contains(diagnostics, d => d.Id == "DCTR001");
-        Assert.DoesNotContain(generatedTrees, t => t.Contains("RegisterHandlers"));
+        Assert.DoesNotContain(generatedTrees, t => t.Contains("HandlerRegistry"));
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public class GeneratorTests
     }
 
     [Fact]
-    public void GeneratedClassName_DerivedFromAssemblyName()
+    public void GeneratedNamespace_DerivedFromAssemblyName()
     {
         var source = """
                      using DecoratR;
@@ -244,8 +244,8 @@ public class GeneratorTests
 
         var (diagnostics, generatedTrees) = RunGenerator(source, assemblyName: "My.Test.Assembly");
 
-        var registrations = generatedTrees.First(t => t.Contains("RegisterHandlers"));
-        Assert.Contains("My_Test_AssemblyRegistrations", registrations);
+        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
+        Assert.Contains("namespace My.Test.Assembly", registrations);
     }
 
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] GeneratedSources) RunGenerator(

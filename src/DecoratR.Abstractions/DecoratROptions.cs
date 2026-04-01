@@ -47,14 +47,12 @@ public sealed class DecoratROptions
     }
 
     /// <summary>
-    /// Register a specific handler type without reflection.
-    /// Intended for use by the DecoratR source generator.
+    /// Register handler types from a pre-built list of (ServiceType, ImplementationType) tuples.
+    /// Intended for use with the DecoratR source generator's <c>HandlerRegistry.Handlers</c>.
     /// </summary>
-    public DecoratROptions AddHandler<TRequest, TResponse, THandler>()
-        where TRequest : IRequest
-        where THandler : class, IRequestHandler<TRequest, TResponse>
+    public DecoratROptions AddHandlers(List<(Type ServiceType, Type ImplementationType)> handlers)
     {
-        HandlerTypes.Add((typeof(IRequestHandler<TRequest, TResponse>), typeof(THandler)));
+        HandlerTypes.AddRange(handlers);
         return this;
     }
 
