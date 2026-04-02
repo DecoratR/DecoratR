@@ -17,8 +17,10 @@ public class GeneratorTests
             "System.Threading.Tasks.dll")
     ];
 
+    // ─── Handler-only path ([GenerateHandlerRegistrations]) ─────────────────
+
     [Fact]
-    public void NoAttribute_ProducesNoOutput()
+    public void NoAttribute_ProducesOnlyAttributeSources()
     {
         var source = """
                      using DecoratR;
@@ -32,11 +34,13 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source, false);
+        var (_, generatedTrees) = RunGenerator(source);
 
-        // Only the attribute source should be generated, not the registrations
-        Assert.Single(generatedTrees);
-        Assert.Contains("GenerateHandlerRegistrationsAttribute", generatedTrees[0]);
+        // Both attribute files are emitted regardless, but no registrations
+        Assert.Equal(2, generatedTrees.Length);
+        Assert.Contains(generatedTrees, t => t.Contains("GenerateHandlerRegistrationsAttribute"));
+        Assert.Contains(generatedTrees, t => t.Contains("GenerateDecoratRRegistrationsAttribute"));
+        Assert.DoesNotContain(generatedTrees, t => t.Contains("HandlerRegistry"));
     }
 
     [Fact]
@@ -56,9 +60,9 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source);
+        var (_, generatedTrees) = RunGenerator(source);
 
-        Assert.Equal(2, generatedTrees.Length); // attribute + registrations
+        Assert.Equal(3, generatedTrees.Length); // 2 attributes + registrations
         var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
 
         Assert.Contains("TestCommandHandler", registrations);
@@ -83,7 +87,7 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source);
+        var (_, generatedTrees) = RunGenerator(source);
 
         var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
         Assert.Contains("TestQueryHandler", registrations);
@@ -113,7 +117,7 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source);
+        var (_, generatedTrees) = RunGenerator(source);
 
         var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
         Assert.Contains("Command1Handler", registrations);
@@ -136,9 +140,8 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source);
+        var (diagnostics, _) = RunGenerator(source);
 
-        // Should get a warning about no handlers found
         Assert.Contains(diagnostics, d => d.Id == "DCTR001");
     }
 
@@ -158,7 +161,7 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source);
+        var (diagnostics, _) = RunGenerator(source);
 
         Assert.Contains(diagnostics, d => d.Id == "DCTR001");
     }
@@ -180,7 +183,7 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source);
+        var (_, generatedTrees) = RunGenerator(source);
 
         var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
         Assert.Contains("InternalHandler", registrations);
@@ -220,7 +223,7 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source);
+        var (diagnostics, _) = RunGenerator(source);
 
         Assert.Contains(diagnostics, d => d.Id == "DCTR002");
     }
@@ -242,15 +245,230 @@ public class GeneratorTests
                      }
                      """;
 
-        var (diagnostics, generatedTrees) = RunGenerator(source, assemblyName: "My.Test.Assembly");
+        var (_, generatedTrees) = RunGenerator(source, assemblyName: "My.Test.Assembly");
 
         var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
         Assert.Contains("namespace My.Test.Assembly", registrations);
     }
 
+    // ─── Full path ([GenerateDecoratRRegistrations]) ─────────────────────────
+
+    [Fact]
+    public void FullAttribute_WithHandlerAndDecorator_GeneratesAddDecoratR()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+
+                     public class LoggingDecorator<TRequest, TResponse> : IDecorator<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        Assert.Contains("TestCommandHandler", registrations);
+        Assert.Contains("LoggingDecorator", registrations);
+        Assert.Contains("Decorate(services,", registrations);
+    }
+
+    [Fact]
+    public void FullAttribute_DecoratorExcludedFromHandlerList()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+
+                     public class LoggingDecorator<TRequest, TResponse> : IDecorator<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+
+        // The decorator IS referenced in Decorate() calls
+        Assert.Contains("Decorate(services,", registrations);
+        Assert.Contains("LoggingDecorator", registrations);
+        // The handler IS registered via AddTransient, not the decorator
+        Assert.Contains("TestCommandHandler", registrations);
+        Assert.DoesNotContain("AddTransient", registrations.Split("// Apply decorators")[1]);
+    }
+
+    [Fact]
+    public void FullAttribute_IDecoratorClassification_ExcludedFromHandlerRegistry()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+
+                     public class LoggingDecorator<TRequest, TResponse> : IDecorator<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+
+        // HandlerRegistry.Handlers should contain TestCommandHandler but not LoggingDecorator
+        var handlerRegistrySection = registrations.Split("public static class HandlerRegistry")[1].Split("public static class DecoratorRegistry")[0];
+        Assert.Contains("TestCommandHandler", handlerRegistrySection);
+        Assert.DoesNotContain("LoggingDecorator", handlerRegistrySection);
+    }
+
+    [Fact]
+    public void FullAttribute_MultipleDecorators_AllAppliedToHandler()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+
+                     public class ADecorator<TRequest, TResponse> : IDecorator<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public ADecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+
+                     public class BDecorator<TRequest, TResponse> : IDecorator<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public BDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        Assert.Contains("ADecorator", registrations);
+        Assert.Contains("BDecorator", registrations);
+    }
+
+    [Fact]
+    public void FullAttribute_DecoratorsDiscovered_ProducesInfoDiagnostic()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+
+                     public class LoggingDecorator<TRequest, TResponse> : IDecorator<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (diagnostics, _) = RunGenerator(source);
+
+        Assert.Contains(diagnostics, d => d.Id == "DCTR003");
+    }
+
+    [Fact]
+    public void FullAttribute_GeneratesDecoratorRegistry()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+
+                     public class LoggingDecorator<TRequest, TResponse> : IDecorator<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratorRegistry"));
+        Assert.Contains("DecoratorRegistry", registrations);
+        Assert.Contains("LoggingDecorator", registrations);
+    }
+
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] GeneratedSources) RunGenerator(
         string source,
-        bool includeAttribute = true,
         string assemblyName = "TestAssembly")
     {
         var references = AbstractionsAssemblyPaths
@@ -269,7 +487,7 @@ public class GeneratorTests
         GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
 
         driver = driver.RunGeneratorsAndUpdateCompilation(
-            compilation, out var outputCompilation, out var diagnostics);
+            compilation, out _, out var diagnostics);
 
         var runResult = driver.GetRunResult();
         var generatedSources = runResult.GeneratedTrees

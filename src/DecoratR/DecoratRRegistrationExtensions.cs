@@ -16,7 +16,7 @@ public static class DecoratRRegistrationExtensions
 
         if (options.Assemblies.Count == 0 && options.HandlerTypes.Count == 0)
         {
-            options.RegisterHandlersFromAssembly(Assembly.GetExecutingAssembly());
+            options.Assemblies.Add(Assembly.GetCallingAssembly());
         }
 
         foreach (var assembly in options.Assemblies)

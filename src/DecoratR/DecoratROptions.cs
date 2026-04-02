@@ -4,34 +4,15 @@ namespace DecoratR;
 
 public sealed class DecoratROptions
 {
-    internal HashSet<Assembly> Assemblies { get; } = [];
+    /// <summary>
+    /// Assemblies to scan for handlers via reflection.
+    /// Populated by <c>DecoratR.Reflection</c> extension methods.
+    /// </summary>
+    public HashSet<Assembly> Assemblies { get; } = [];
 
     internal List<DecoratorRegistration> Decorators { get; } = [];
 
     internal List<(Type ServiceType, Type ImplementationType)> HandlerTypes { get; } = [];
-
-    /// <summary>
-    /// Scan the given assembly for types implementing <see cref="IRequestHandler{TRequest,TResponse}"/> and register them.
-    /// </summary>
-    public DecoratROptions RegisterHandlersFromAssembly(params ReadOnlySpan<Assembly> assembly)
-    {
-        foreach (var a in assembly)
-        {
-            Assemblies.Add(a);
-        }
-
-        return this;
-    }
-
-    /// <summary>
-    /// Scan the assembly containing <typeparamref name="T"/> for types implementing
-    /// <see cref="IRequestHandler{TRequest,TResponse}"/> and register them.
-    /// </summary>
-    public DecoratROptions RegisterHandlersFromAssembly<T>()
-    {
-        Assemblies.Add(typeof(T).Assembly);
-        return this;
-    }
 
     /// <summary>
     /// Register handler types from a pre-built list of (ServiceType, ImplementationType) tuples.

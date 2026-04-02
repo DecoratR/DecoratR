@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DecoratR\DecoratR.csproj" />
+    <ProjectReference Include="..\..\src\DecoratR.Reflection\DecoratR.Reflection.csproj" />
   </ItemGroup>
 
 </Project>

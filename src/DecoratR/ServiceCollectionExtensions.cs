@@ -2,9 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR;
 
-internal static class ServiceCollectionExtensions
+public static class ServiceCollectionExtensions
 {
-    internal static void Decorate(
+    public static void Decorate(
         this IServiceCollection services,
         Type serviceType, Type decoratorType)
     {

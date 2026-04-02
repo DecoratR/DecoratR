@@ -5,7 +5,7 @@ namespace DecoratR.Sample.Presentation.Decorators;
 public class PerformanceLoggingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
     ILogger<PerformanceLoggingDecorator<TRequest, TResponse>> logger)
-    : IRequestHandler<TRequest, TResponse>
+    : IDecorator<TRequest, TResponse>
     where TRequest : IRequest
 {
     private static readonly TimeSpan SlowThreshold = TimeSpan.FromMilliseconds(200);

@@ -1,20 +1,15 @@
-using DecoratR;
 using DecoratR.Sample.Application;
 using DecoratR.Sample.Infrastructure;
-using DecoratR.Sample.Presentation.Decorators;
+using DecoratR.Sample.Presentation;
 using DecoratR.Sample.Presentation.Endpoints;
 using FluentValidation;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services
-    .AddDecoratR(options => options
-        .AddHandlers(HandlerRegistry.Handlers)
-        .AddDecorator(typeof(ExceptionHandlingDecorator<,>))
-        .AddDecorator(typeof(RequestLoggingDecorator<,>))
-        .AddDecorator(typeof(PerformanceLoggingDecorator<,>))
-        .AddDecorator(typeof(ValidationDecorator<,>)));
+// Reflection-free: handlers and decorators discovered at compile-time by the DecoratR source generator.
+// For custom decorator ordering, use: .AddDecoratR(options => options.AddHandlers(...).AddDecorator(...))
+builder.Services.AddDecoratR();
 
 builder.Services.AddValidatorsFromAssembly(ApplicationAssembly.Assembly);
 
