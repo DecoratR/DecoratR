@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR;
@@ -14,16 +13,6 @@ public static class DecoratRRegistrationExtensions
         var options = new DecoratROptions();
         configure(options);
 
-        if (options.Assemblies.Count == 0 && options.HandlerTypes.Count == 0)
-        {
-            options.Assemblies.Add(Assembly.GetCallingAssembly());
-        }
-
-        foreach (var assembly in options.Assemblies)
-        {
-            RegisterHandlersFromAssembly(services, assembly);
-        }
-
         foreach (var (serviceType, implementationType) in options.HandlerTypes)
         {
             services.Add(new ServiceDescriptor(serviceType, implementationType, ServiceLifetime.Transient));
@@ -32,29 +21,6 @@ public static class DecoratRRegistrationExtensions
         ApplyDecorators(services, options.Decorators);
 
         return services;
-    }
-
-    private static void RegisterHandlersFromAssembly(
-        IServiceCollection services, Assembly assembly)
-    {
-        foreach (var type in assembly.GetTypes())
-        {
-            if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition)
-            {
-                continue;
-            }
-
-            foreach (var @interface in type.GetInterfaces())
-            {
-                if (!@interface.IsGenericType || @interface.GetGenericTypeDefinition() != OpenHandlerInterface)
-                {
-                    continue;
-                }
-
-                services.Add(new ServiceDescriptor(@interface, type, ServiceLifetime.Transient));
-                break;
-            }
-        }
     }
 
     private static void ApplyDecorators(

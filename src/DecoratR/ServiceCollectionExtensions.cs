@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR;
@@ -6,7 +7,7 @@ public static class ServiceCollectionExtensions
 {
     public static void Decorate(
         this IServiceCollection services,
-        Type serviceType, Type decoratorType)
+        Type serviceType, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type decoratorType)
     {
         var wrappedDescriptor = services.FirstOrDefault(s => s.ServiceType == serviceType) ??
                                 throw new InvalidOperationException(

@@ -1,9 +1,12 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace DecoratR;
 
 public static class DecoratROptionsReflectionExtensions
 {
+    private static readonly ConditionalWeakTable<DecoratROptions, HashSet<Assembly>> ScannedAssemblies = new();
+
     /// <summary>
     /// Scan the given assemblies for types implementing <see cref="IRequestHandler{TRequest,TResponse}"/> and register them.
     /// </summary>
@@ -11,9 +14,14 @@ public static class DecoratROptionsReflectionExtensions
         this DecoratROptions options,
         params ReadOnlySpan<Assembly> assemblies)
     {
+        var scanned = ScannedAssemblies.GetOrCreateValue(options);
+
         foreach (var assembly in assemblies)
         {
-            options.Assemblies.Add(assembly);
+            if (scanned.Add(assembly))
+            {
+                DiscoverHandlers(options, assembly);
+            }
         }
 
         return options;
@@ -25,8 +33,7 @@ public static class DecoratROptionsReflectionExtensions
     /// </summary>
     public static DecoratROptions RegisterHandlersFromAssembly<T>(this DecoratROptions options)
     {
-        options.Assemblies.Add(typeof(T).Assembly);
-        return options;
+        return options.RegisterHandlersFromAssembly(typeof(T).Assembly);
     }
 
     /// <summary>
@@ -53,6 +60,29 @@ public static class DecoratROptionsReflectionExtensions
     {
         DiscoverDecorators(options, typeof(T).Assembly);
         return options;
+    }
+
+    private static void DiscoverHandlers(DecoratROptions options, Assembly assembly)
+    {
+        var handlerInterface = typeof(IRequestHandler<,>);
+        var handlers = new List<(Type ServiceType, Type ImplementationType)>();
+
+        foreach (var type in assembly.GetTypes())
+        {
+            if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition)
+                continue;
+
+            foreach (var @interface in type.GetInterfaces())
+            {
+                if (!@interface.IsGenericType || @interface.GetGenericTypeDefinition() != handlerInterface)
+                    continue;
+
+                handlers.Add((@interface, type));
+                break;
+            }
+        }
+
+        options.AddHandlers(handlers);
     }
 
     private static void DiscoverDecorators(DecoratROptions options, Assembly assembly)

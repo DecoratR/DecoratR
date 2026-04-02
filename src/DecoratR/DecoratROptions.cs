@@ -1,15 +1,7 @@
-using System.Reflection;
-
 namespace DecoratR;
 
 public sealed class DecoratROptions
 {
-    /// <summary>
-    /// Assemblies to scan for handlers via reflection.
-    /// Populated by <c>DecoratR.Reflection</c> extension methods.
-    /// </summary>
-    public HashSet<Assembly> Assemblies { get; } = [];
-
     internal List<(Type DecoratorType, int Order)> Decorators { get; } = [];
 
     internal List<(Type ServiceType, Type ImplementationType)> HandlerTypes { get; } = [];
