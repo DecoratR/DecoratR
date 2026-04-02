@@ -2,10 +2,11 @@ using System.Diagnostics;
 
 namespace DecoratR.Sample.Presentation.Decorators;
 
+[Decorator(Order = 2)]
 public class PerformanceLoggingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
     ILogger<PerformanceLoggingDecorator<TRequest, TResponse>> logger)
-    : IDecorator<TRequest, TResponse>
+    : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest
 {
     private static readonly TimeSpan SlowThreshold = TimeSpan.FromMilliseconds(200);
@@ -21,14 +22,11 @@ public class PerformanceLoggingDecorator<TRequest, TResponse>(
             logger.LogWarning("Slow request detected — {RequestType} took {ElapsedMs}ms (threshold: {ThresholdMs}ms)",
                 typeof(TRequest).Name, elapsed.TotalMilliseconds, SlowThreshold.TotalMilliseconds);
         }
-
-
         else
         {
             logger.LogInformation("{RequestType} completed in {ElapsedMs}ms",
                 typeof(TRequest).Name, elapsed.TotalMilliseconds);
         }
-
 
         return response;
     }

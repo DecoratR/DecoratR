@@ -6,10 +6,11 @@ namespace DecoratR.Generator;
 [Generator(LanguageNames.CSharp)]
 public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 {
-    private const string RequestHandlerMetadataName = "DecoratR.IRequestHandler`2";
-    private const string DecoratorMetadataName = "DecoratR.IDecorator`2";
     private const string HandlerAttributeMetadataName = "DecoratR.GenerateHandlerRegistrationsAttribute";
     private const string FullAttributeMetadataName = "DecoratR.GenerateDecoratRRegistrationsAttribute";
+    private const string DecoratorAttributeMetadataName = "DecoratR.DecoratorAttribute";
+    private const string HandlerRegistrationAttributeName = "DecoratRHandlerRegistrationAttribute";
+    private const string HandlerServiceTypeAttributeName = "DecoratRHandlerServiceTypeAttribute";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -20,6 +21,12 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
                 SourceGenerationHelper.GenerateHandlerAttribute());
             ctx.AddSource("GenerateDecoratRRegistrationsAttribute.g.cs",
                 SourceGenerationHelper.GenerateFullAttribute());
+            ctx.AddSource("DecoratRRegistrationMethodAttribute.g.cs",
+                SourceGenerationHelper.GenerateRegistrationMethodAttribute());
+            ctx.AddSource("DecoratRHandlerRegistrationAttribute.g.cs",
+                SourceGenerationHelper.GenerateHandlerRegistrationAttribute());
+            ctx.AddSource("DecoratRHandlerServiceTypeAttribute.g.cs",
+                SourceGenerationHelper.GenerateHandlerServiceTypeAttribute());
         });
 
         // ── Handler-only path ([GenerateHandlerRegistrations]) ──────────────
@@ -57,44 +64,44 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             .Collect()
             .Select(static (items, _) => items.Length > 0);
 
-        // Local decorators (open-generic IDecorator<,> implementations)
+        // Local decorators (open-generic classes with [Decorator] attribute)
         var localDecorators = context.SyntaxProvider
-            .CreateSyntaxProvider(
+            .ForAttributeWithMetadataName(
+                DecoratorAttributeMetadataName,
                 static (node, _) => node is ClassDeclarationSyntax,
-                static (ctx, ct) => GetDecoratorMetadata(ctx, ct))
+                static (ctx, _) => GetDecoratorMetadata(ctx))
             .Where(static m => m is not null)
             .Select(static (m, _) => m!);
 
         var collectedDecorators = localDecorators.Collect();
 
-        // Cross-assembly handlers from referenced assemblies
-        var referencedHandlers = context.CompilationProvider
-            .Select(static (compilation, ct) => GetHandlersFromReferencedAssemblies(compilation, ct));
+        // Cross-assembly: discover registration methods and service types via assembly attributes
+        var referencedRegistrations = context.CompilationProvider
+            .Select(static (compilation, ct) => GetRegistrationDataFromReferencedAssemblies(compilation, ct));
 
         var fullCombined = hasFullAttribute
             .Combine(collectedLocalHandlers)
-            .Combine(referencedHandlers)
+            .Combine(referencedRegistrations)
             .Combine(collectedDecorators)
             .Combine(context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Unknown"));
 
         context.RegisterSourceOutput(fullCombined, static (spc, source) =>
         {
-            var ((((hasAttr, localH), referencedH), decorators), assemblyName) = source;
+            var ((((hasAttr, localH), referenced), decorators), assemblyName) = source;
             if (!hasAttr) return;
 
-            // Merge local + referenced handlers, deduplicate
-            var allHandlers = localH
-                .Concat(referencedH)
+            var sortedLocalHandlers = localH
                 .Distinct()
                 .OrderBy(h => h.HandlerFullyQualifiedName)
                 .ToList();
 
             var sortedDecorators = decorators
                 .Distinct()
-                .OrderBy(d => d.DecoratorFullyQualifiedName)
+                .OrderBy(d => d.Order)
+                .ThenBy(d => d.DecoratorFullyQualifiedName)
                 .ToList();
 
-            EmitFullRegistrations(spc, assemblyName, allHandlers, sortedDecorators);
+            EmitFullRegistrations(spc, assemblyName, sortedLocalHandlers, referenced.Methods, referenced.ServiceTypes, sortedDecorators);
         });
     }
 
@@ -139,9 +146,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             if (iface.TypeArguments.Length != 2)
                 continue;
 
-            // Exclude decorators: they implement IDecorator<,> which extends IRequestHandler<,>
-            var isDecorator = symbol.AllInterfaces.Any(i =>
-                i.OriginalDefinition.ToDisplayString() == "DecoratR.IDecorator<TRequest, TResponse>");
+            // Exclude decorators: classes annotated with [Decorator]
+            var isDecorator = symbol.GetAttributes().Any(a =>
+                a.AttributeClass?.ToDisplayString() == "DecoratR.DecoratorAttribute");
 
             if (isDecorator)
                 return null;
@@ -155,101 +162,48 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         return null;
     }
 
-    // ─── Cross-assembly handler scan ─────────────────────────────────────────
+    // ─── Cross-assembly registration discovery via assembly attributes ───────
 
-    private static IReadOnlyList<HandlerMetadata> GetHandlersFromReferencedAssemblies(
+    private static ReferencedRegistrationData GetRegistrationDataFromReferencedAssemblies(
         Compilation compilation, CancellationToken cancellationToken)
     {
-        var requestHandlerSymbol = compilation.GetTypeByMetadataName(RequestHandlerMetadataName);
-        var decoratorSymbol = compilation.GetTypeByMetadataName(DecoratorMetadataName);
-
-        if (requestHandlerSymbol is null)
-            return [];
-
-        var results = new List<HandlerMetadata>();
+        var methods = new List<RegistrationMethodMetadata>();
+        var serviceTypes = new List<HandlerMetadata>();
 
         foreach (var referencedAssembly in compilation.SourceModule.ReferencedAssemblySymbols)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            CollectHandlersFromNamespace(referencedAssembly.GlobalNamespace, requestHandlerSymbol, decoratorSymbol, results, cancellationToken);
+
+            foreach (var attr in referencedAssembly.GetAttributes())
+            {
+                var attrName = attr.AttributeClass?.Name;
+
+                if (attrName == HandlerRegistrationAttributeName
+                    && attr.ConstructorArguments.Length == 2
+                    && attr.ConstructorArguments[0].Value is string className
+                    && attr.ConstructorArguments[1].Value is string methodName)
+                {
+                    methods.Add(new RegistrationMethodMetadata(className, methodName));
+                }
+                else if (attrName == HandlerServiceTypeAttributeName
+                    && attr.ConstructorArguments.Length == 2
+                    && attr.ConstructorArguments[0].Value is string requestType
+                    && attr.ConstructorArguments[1].Value is string responseType)
+                {
+                    serviceTypes.Add(new HandlerMetadata(string.Empty, requestType, responseType));
+                }
+            }
         }
 
-        return results;
-    }
-
-    private static void CollectHandlersFromNamespace(
-        INamespaceSymbol ns,
-        INamedTypeSymbol requestHandlerSymbol,
-        INamedTypeSymbol? decoratorSymbol,
-        List<HandlerMetadata> results,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        foreach (var type in ns.GetTypeMembers())
-        {
-            if (type.IsAbstract || type.IsStatic || type.TypeParameters.Length > 0)
-                continue;
-
-            if (type.TypeKind != TypeKind.Class)
-                continue;
-
-            // Only public types are accessible from the consuming (composition root) assembly
-            if (type.DeclaredAccessibility != Accessibility.Public)
-                continue;
-
-            var metadata = ExtractHandlerMetadataFromSymbol(type, requestHandlerSymbol, decoratorSymbol);
-            if (metadata is not null)
-                results.Add(metadata);
-        }
-
-        foreach (var childNs in ns.GetNamespaceMembers())
-        {
-            CollectHandlersFromNamespace(childNs, requestHandlerSymbol, decoratorSymbol, results, cancellationToken);
-        }
-    }
-
-    private static HandlerMetadata? ExtractHandlerMetadataFromSymbol(
-        INamedTypeSymbol symbol,
-        INamedTypeSymbol requestHandlerSymbol,
-        INamedTypeSymbol? decoratorSymbol)
-    {
-        var isDecorator = decoratorSymbol is not null &&
-            symbol.AllInterfaces.Any(i =>
-                SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, decoratorSymbol));
-
-        if (isDecorator)
-            return null;
-
-        foreach (var iface in symbol.AllInterfaces)
-        {
-            if (!SymbolEqualityComparer.Default.Equals(iface.OriginalDefinition, requestHandlerSymbol))
-                continue;
-
-            if (iface.TypeArguments.Length != 2)
-                continue;
-
-            return new HandlerMetadata(
-                symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                iface.TypeArguments[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                iface.TypeArguments[1].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        }
-
-        return null;
+        return new ReferencedRegistrationData(methods, serviceTypes);
     }
 
     // ─── Decorator detection ──────────────────────────────────────────────────
 
-    private static DecoratorMetadata? GetDecoratorMetadata(
-        GeneratorSyntaxContext context, CancellationToken cancellationToken)
+    private static DecoratorMetadata? GetDecoratorMetadata(GeneratorAttributeSyntaxContext context)
     {
-        var classDeclaration = (ClassDeclarationSyntax)context.Node;
-
-        if (context.SemanticModel.GetDeclaredSymbol(classDeclaration, cancellationToken)
-            is not INamedTypeSymbol symbol)
-        {
+        if (context.TargetSymbol is not INamedTypeSymbol symbol)
             return null;
-        }
 
         // Decorators must be open generic
         if (symbol.TypeParameters.Length == 0)
@@ -258,23 +212,24 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         if (symbol.IsAbstract || symbol.IsStatic)
             return null;
 
-        // Must implement IDecorator<,>
-        var implementsDecorator = symbol.AllInterfaces.Any(i =>
-            i.OriginalDefinition.ToDisplayString() == "DecoratR.IDecorator<TRequest, TResponse>");
+        // Extract Order from [Decorator] attribute
+        var order = 0;
+        foreach (var attr in context.Attributes)
+        {
+            foreach (var namedArg in attr.NamedArguments)
+            {
+                if (namedArg.Key == "Order" && namedArg.Value.Value is int orderValue)
+                    order = orderValue;
+            }
+        }
 
-        if (!implementsDecorator)
-            return null;
-
-        // Store as open generic (without type args) so the generator can close it per handler
+        // Store as open generic form (without type args)
         var openGenericName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var angleIndex = openGenericName.IndexOf('<');
+        if (angleIndex >= 0)
+            openGenericName = openGenericName.Substring(0, angleIndex);
 
-        // Remove the type arguments from the display string to get the open generic form
-        // e.g. "global::MyApp.RequestLoggingDecorator<TRequest, TResponse>" -> "global::MyApp.RequestLoggingDecorator"
-        var backtickIndex = openGenericName.IndexOf('<');
-        if (backtickIndex >= 0)
-            openGenericName = openGenericName.Substring(0, backtickIndex);
-
-        return new DecoratorMetadata(openGenericName);
+        return new DecoratorMetadata(openGenericName, order);
     }
 
     // ─── Emission helpers ─────────────────────────────────────────────────────
@@ -302,10 +257,14 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     private static void EmitFullRegistrations(
         SourceProductionContext spc,
         string assemblyName,
-        IReadOnlyList<HandlerMetadata> handlers,
+        IReadOnlyList<HandlerMetadata> localHandlers,
+        IReadOnlyList<RegistrationMethodMetadata> referencedMethods,
+        IReadOnlyList<HandlerMetadata> referencedServiceTypes,
         IReadOnlyList<DecoratorMetadata> decorators)
     {
-        if (handlers.Count == 0)
+        var totalHandlerCount = localHandlers.Count + referencedServiceTypes.Count;
+
+        if (totalHandlerCount == 0)
         {
             spc.ReportDiagnostic(Diagnostic.Create(
                 Diagnostics.NoHandlersFound, Location.None, assemblyName));
@@ -313,7 +272,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         else
         {
             spc.ReportDiagnostic(Diagnostic.Create(
-                Diagnostics.HandlersDiscovered, Location.None, handlers.Count, assemblyName));
+                Diagnostics.HandlersDiscovered, Location.None, totalHandlerCount, assemblyName));
         }
 
         if (decorators.Count > 0)
@@ -323,6 +282,44 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         }
 
         spc.AddSource("DecoratRRegistrations.g.cs",
-            SourceGenerationHelper.GenerateFullRegistrations(assemblyName, handlers, decorators));
+            SourceGenerationHelper.GenerateFullRegistrations(assemblyName, localHandlers, referencedMethods, referencedServiceTypes, decorators));
+    }
+}
+
+/// <summary>
+/// Holds cross-assembly registration data discovered from assembly-level attributes.
+/// </summary>
+internal sealed class ReferencedRegistrationData : IEquatable<ReferencedRegistrationData>
+{
+    public IReadOnlyList<RegistrationMethodMetadata> Methods { get; }
+    public IReadOnlyList<HandlerMetadata> ServiceTypes { get; }
+
+    public ReferencedRegistrationData(
+        IReadOnlyList<RegistrationMethodMetadata> methods,
+        IReadOnlyList<HandlerMetadata> serviceTypes)
+    {
+        Methods = methods;
+        ServiceTypes = serviceTypes;
+    }
+
+    public bool Equals(ReferencedRegistrationData? other)
+    {
+        if (other is null) return false;
+        if (ReferenceEquals(this, other)) return true;
+        return Methods.SequenceEqual(other.Methods)
+            && ServiceTypes.SequenceEqual(other.ServiceTypes);
+    }
+
+    public override bool Equals(object? obj) => Equals(obj as ReferencedRegistrationData);
+
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var m in Methods) hash = hash * 31 + m.GetHashCode();
+            foreach (var s in ServiceTypes) hash = hash * 31 + s.GetHashCode();
+            return hash;
+        }
     }
 }

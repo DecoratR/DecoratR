@@ -2,10 +2,11 @@ using FluentValidation;
 
 namespace DecoratR.Sample.Presentation.Decorators;
 
+[Decorator(Order = 4)]
 public sealed class ValidationDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
     IEnumerable<IValidator<TRequest>> validators)
-    : IDecorator<TRequest, TResponse>
+    : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest
 {
     public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)

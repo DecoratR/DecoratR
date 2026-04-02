@@ -57,7 +57,8 @@ public static class DecoratRRegistrationExtensions
         }
     }
 
-    private static void ApplyDecorators(IServiceCollection services, List<DecoratROptions.DecoratorRegistration> decorators)
+    private static void ApplyDecorators(
+        IServiceCollection services, List<(Type DecoratorType, int Order)> decorators)
     {
         var handlerServiceTypes = services
             .Where(sd => sd.ServiceType.IsGenericType && sd.ServiceType.GetGenericTypeDefinition() == OpenHandlerInterface)
@@ -65,23 +66,15 @@ public static class DecoratRRegistrationExtensions
             .Distinct()
             .ToArray();
 
-        // Apply in reverse so first registered = outermost
-        foreach (var registration in Enumerable.Reverse(decorators))
+        // Stable sort ascending by Order, then reverse:
+        // lowest Order = outermost (applied last, wraps everything)
+        foreach (var (decoratorType, _) in decorators.OrderBy(d => d.Order).Reverse())
         {
             foreach (var handlerServiceType in handlerServiceTypes)
             {
-                var genericArgs = handlerServiceType.GetGenericArguments();
-                var requestType = genericArgs[0];
-
-                if (registration.RequestFilter is not null && !registration.RequestFilter(requestType))
-                {
-                    continue;
-                }
-
-                var closedDecorator = registration.DecoratorType.MakeGenericType(genericArgs);
+                var closedDecorator = decoratorType.MakeGenericType(handlerServiceType.GetGenericArguments());
                 services.Decorate(handlerServiceType, closedDecorator);
             }
         }
     }
-
 }

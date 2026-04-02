@@ -1,9 +1,10 @@
 namespace DecoratR.Sample.Presentation.Decorators;
 
+[Decorator(Order = 3)]
 public class RequestLoggingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
     ILogger<RequestLoggingDecorator<TRequest, TResponse>> logger)
-    : IDecorator<TRequest, TResponse>
+    : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest
 {
     public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)

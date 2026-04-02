@@ -33,7 +33,7 @@ internal static class Diagnostics
     public static readonly DiagnosticDescriptor NoDecoratorsFound = new(
         "DCTR004",
         "No decorators found",
-        "Assembly '{0}' has [GenerateDecoratRRegistrations] but no IDecorator<,> implementations were found",
+        "Assembly '{0}' has [GenerateDecoratRRegistrations] but no [Decorator] classes were found",
         "DecoratR.Generator",
         DiagnosticSeverity.Warning,
         true);

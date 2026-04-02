@@ -1,9 +1,9 @@
 using System.Diagnostics;
 
-namespace DecoratR.Sample.Presentation.Decorators;
+namespace DecoratR.Sample.Application;
 
 [Decorator(Order = 1)]
-internal sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
+internal sealed class FooDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner)
     : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest

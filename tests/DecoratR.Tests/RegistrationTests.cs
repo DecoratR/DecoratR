@@ -130,26 +130,6 @@ public class RegistrationTests
     }
 
     [Fact]
-    public async Task AddDecorator_with_predicate_filters_handlers()
-    {
-        var services = new ServiceCollection();
-        services.AddDecoratR(options => options
-            .RegisterHandlersFromAssembly<TestCommand>()
-            .AddDecorator(typeof(OuterDecorator<,>), requestType => requestType == typeof(TestCommand)));
-
-        var provider = services.BuildServiceProvider();
-
-        var commandHandler = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();
-        var queryHandler = provider.GetRequiredService<IRequestHandler<TestQuery, string>>();
-
-        var commandResult = await commandHandler.HandleAsync(new TestCommand("test"), TestContext.Current.CancellationToken);
-        var queryResult = await queryHandler.HandleAsync(new TestQuery(1), TestContext.Current.CancellationToken);
-
-        Assert.Equal("Outer(Handled: test)", commandResult);
-        Assert.Equal("Result: 1", queryResult); // no decorator applied
-    }
-
-    [Fact]
     public void Handlers_are_registered_as_transient_descriptor()
     {
         var services = new ServiceCollection();
