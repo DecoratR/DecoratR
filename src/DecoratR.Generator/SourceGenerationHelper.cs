@@ -249,9 +249,11 @@ internal static class SourceGenerationHelper
             {
                 foreach (var decorator in reversedDecorators)
                 {
-                    sb.AppendIndentedLine(3, "global::DecoratR.ServiceCollectionExtensions.Decorate(services,");
-                    sb.AppendIndentedLine(4, $"typeof(global::DecoratR.IRequestHandler<{requestType}, {responseType}>),");
-                    sb.AppendIndentedLine(4, $"typeof({decorator.DecoratorFullyQualifiedName}<{requestType}, {responseType}>));");
+                    sb.AppendIndentedLine(3, $"global::DecoratR.ServiceCollectionExtensions.Decorate<");
+                    sb.AppendIndentedLine(4, $"global::DecoratR.IRequestHandler<{requestType}, {responseType}>,");
+                    sb.AppendIndentedLine(4, $"{decorator.DecoratorFullyQualifiedName}<{requestType}, {responseType}>,");
+                    sb.AppendIndentedLine(4, $"{requestType},");
+                    sb.AppendIndentedLine(4, $"{responseType}>(services);");
                 }
             }
         }

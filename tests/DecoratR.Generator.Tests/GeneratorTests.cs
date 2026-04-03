@@ -434,7 +434,7 @@ public class GeneratorTests
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
         Assert.Contains("TestCommandHandler", registrations);
         Assert.Contains("LoggingDecorator", registrations);
-        Assert.Contains("Decorate(services,", registrations);
+        Assert.Contains("Decorate<", registrations);
     }
 
     [Fact]
@@ -469,7 +469,7 @@ public class GeneratorTests
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
         // The decorator IS referenced in Decorate() calls
-        Assert.Contains("Decorate(services,", registrations);
+        Assert.Contains("Decorate<", registrations);
         Assert.Contains("LoggingDecorator", registrations);
         // The handler IS registered via ServiceDescriptor, not the decorator
         Assert.Contains("TestCommandHandler", registrations);
@@ -802,7 +802,7 @@ public class GeneratorTests
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
         // Decorators should be applied using service types from referenced assembly
-        Assert.Contains("Decorate(services,", registrations);
+        Assert.Contains("Decorate<", registrations);
         Assert.Contains("LoggingDecorator", registrations);
         Assert.Contains("TestCommand", registrations);
     }

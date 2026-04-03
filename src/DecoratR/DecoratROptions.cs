@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace DecoratR;
 
 public sealed class DecoratROptions
@@ -20,14 +22,14 @@ public sealed class DecoratROptions
     /// Add an open generic decorator type to the pipeline.
     /// Lower <paramref name="order"/> values run first (outermost).
     /// </summary>
-    public DecoratROptions AddDecorator(Type openGenericDecoratorType, int order = 0)
+    public DecoratROptions AddDecorator([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type openGenericDecoratorType, int order = 0)
     {
         ValidateOpenGeneric(openGenericDecoratorType);
         Decorators.Add((openGenericDecoratorType, order));
         return this;
     }
 
-    private static void ValidateOpenGeneric(Type openGenericDecoratorType)
+    private static void ValidateOpenGeneric([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type openGenericDecoratorType)
     {
         if (!openGenericDecoratorType.IsGenericTypeDefinition)
         {

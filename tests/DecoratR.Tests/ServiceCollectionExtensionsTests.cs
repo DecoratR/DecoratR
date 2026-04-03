@@ -9,9 +9,7 @@ public class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddTransient<IRequestHandler<TestCommand, string>, TestCommandHandler>();
-        services.Decorate(
-            typeof(IRequestHandler<TestCommand, string>),
-            typeof(OuterDecorator<TestCommand, string>));
+        services.Decorate<IRequestHandler<TestCommand, string>, OuterDecorator<TestCommand, string>, TestCommand, string>();
 
         var provider = services.BuildServiceProvider();
         var handler = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();
@@ -27,9 +25,7 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
 
         Assert.Throws<InvalidOperationException>(() =>
-            services.Decorate(
-                typeof(IRequestHandler<TestCommand, string>),
-                typeof(OuterDecorator<TestCommand, string>)));
+            services.Decorate<IRequestHandler<TestCommand, string>, OuterDecorator<TestCommand, string>, TestCommand, string>());
     }
 
     [Fact]
@@ -37,9 +33,7 @@ public class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<IRequestHandler<TestCommand, string>, TestCommandHandler>();
-        services.Decorate(
-            typeof(IRequestHandler<TestCommand, string>),
-            typeof(TrackingDecorator<TestCommand, string>));
+        services.Decorate<IRequestHandler<TestCommand, string>, TrackingDecorator<TestCommand, string>, TestCommand, string>();
 
         var provider = services.BuildServiceProvider();
         var handler1 = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();
@@ -53,12 +47,8 @@ public class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddTransient<IRequestHandler<TestCommand, string>, TestCommandHandler>();
-        services.Decorate(
-            typeof(IRequestHandler<TestCommand, string>),
-            typeof(InnerDecorator<TestCommand, string>));
-        services.Decorate(
-            typeof(IRequestHandler<TestCommand, string>),
-            typeof(OuterDecorator<TestCommand, string>));
+        services.Decorate<IRequestHandler<TestCommand, string>, InnerDecorator<TestCommand, string>, TestCommand, string>();
+        services.Decorate<IRequestHandler<TestCommand, string>, OuterDecorator<TestCommand, string>, TestCommand, string>();
 
         var provider = services.BuildServiceProvider();
         var handler = provider.GetRequiredService<IRequestHandler<TestCommand, string>>();

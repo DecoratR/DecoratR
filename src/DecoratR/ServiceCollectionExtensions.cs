@@ -5,27 +5,36 @@ namespace DecoratR;
 
 public static class ServiceCollectionExtensions
 {
-    public static void Decorate(
-        this IServiceCollection services,
-        Type serviceType, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type decoratorType)
+    extension(IServiceCollection services)
     {
-        var wrappedDescriptor = services.FirstOrDefault(s => s.ServiceType == serviceType) ??
-                                throw new InvalidOperationException(
-                                    $"No service of type {serviceType.FullName} has been registered.");
+        public void Decorate<TService, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator, TRequest, TResponse>()
+            where TService : IRequestHandler<TRequest, TResponse>
+            where TDecorator : TService
+            where TRequest : IRequest
+        {
+            services.Decorate(typeof(TService), typeof(TDecorator));
+        }
 
-        var index = services.IndexOf(wrappedDescriptor);
-        services.RemoveAt(index);
+        internal void Decorate(Type serviceType, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type decoratorType)
+        {
+            var wrappedDescriptor = services.FirstOrDefault(s => s.ServiceType == serviceType) ??
+                                    throw new InvalidOperationException(
+                                        $"No service of type {serviceType.FullName} has been registered.");
 
-        services.Insert(index, ServiceDescriptor.Describe(
-            serviceType,
-            provider =>
-            {
-                var innerInstance = wrappedDescriptor.ImplementationFactory is not null
-                    ? wrappedDescriptor.ImplementationFactory(provider)
-                    : wrappedDescriptor.ImplementationInstance ?? ActivatorUtilities.CreateInstance(provider, wrappedDescriptor.ImplementationType!);
+            var index = services.IndexOf(wrappedDescriptor);
+            services.RemoveAt(index);
 
-                return ActivatorUtilities.CreateInstance(provider, decoratorType, innerInstance);
-            },
-            wrappedDescriptor.Lifetime));
+            services.Insert(index, ServiceDescriptor.Describe(
+                serviceType,
+                provider =>
+                {
+                    var innerInstance = wrappedDescriptor.ImplementationFactory is not null
+                        ? wrappedDescriptor.ImplementationFactory(provider)
+                        : wrappedDescriptor.ImplementationInstance ?? ActivatorUtilities.CreateInstance(provider, wrappedDescriptor.ImplementationType!);
+
+                    return ActivatorUtilities.CreateInstance(provider, decoratorType, innerInstance);
+                },
+                wrappedDescriptor.Lifetime));
+        }
     }
 }
