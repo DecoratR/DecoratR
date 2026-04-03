@@ -43,7 +43,7 @@ public class GeneratorTests
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRRegistrationMethodAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRHandlerRegistrationAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRHandlerServiceTypeAttribute"));
-        Assert.DoesNotContain(generatedTrees, t => t.Contains("HandlerRegistry"));
+        Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class GeneratorTests
         var (_, generatedTrees) = RunGenerator(source);
 
         Assert.Equal(6, generatedTrees.Length); // 5 attributes + registrations
-        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
 
         Assert.Contains("TestCommandHandler", registrations);
         Assert.Contains("TestCommand", registrations);
@@ -92,7 +92,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
         Assert.Contains("TestQueryHandler", registrations);
     }
 
@@ -122,7 +122,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
         Assert.Contains("Command1Handler", registrations);
         Assert.Contains("Query1Handler", registrations);
     }
@@ -188,7 +188,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
         Assert.Contains("InternalHandler", registrations);
     }
 
@@ -206,7 +206,7 @@ public class GeneratorTests
         var (diagnostics, generatedTrees) = RunGenerator(source);
 
         Assert.Contains(diagnostics, d => d.Id == "DCTR001");
-        Assert.DoesNotContain(generatedTrees, t => t.Contains("HandlerRegistry"));
+        Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
     }
 
     [Fact]
@@ -250,8 +250,8 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source, assemblyName: "My.Test.Assembly");
 
-        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
-        Assert.Contains("namespace My.Test.Assembly", registrations);
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        Assert.Contains("namespace My.Test.Assembly;", registrations);
     }
 
     // ─── Handler-only path: Extension method generation ─────────────────────
@@ -323,7 +323,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
         Assert.Contains("[assembly: global::DecoratR.DecoratRHandlerRegistration(", registrations);
         Assert.Contains("\"AddDecoratRHandlers_TestAssembly\"", registrations);
     }
@@ -347,7 +347,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("HandlerRegistry"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
         Assert.Contains("[assembly: global::DecoratR.DecoratRHandlerServiceType(", registrations);
         Assert.Contains("\"global::TestCommand\"", registrations);
         Assert.Contains("\"string\"", registrations);
@@ -477,43 +477,6 @@ public class GeneratorTests
     }
 
     [Fact]
-    public void FullAttribute_DecoratorAttributeClassification_ExcludedFromHandlerRegistry()
-    {
-        var source = """
-                     using DecoratR;
-
-                     [assembly: DecoratR.GenerateDecoratRRegistrations]
-
-                     public sealed record TestCommand(string Name) : IRequest;
-
-                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
-                     {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
-                             => ValueTask.FromResult("Hello");
-                     }
-
-                     [Decorator(Order = 1)]
-                     public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
-                         where TRequest : IRequest
-                     {
-                         private readonly IRequestHandler<TRequest, TResponse> _inner;
-                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
-                             => _inner.HandleAsync(request, cancellationToken);
-                     }
-                     """;
-
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
-
-        // HandlerRegistry.Handlers should contain TestCommandHandler but not LoggingDecorator
-        var handlerRegistrySection = registrations.Split("public static class HandlerRegistry")[1].Split("public static class DecoratorRegistry")[0];
-        Assert.Contains("TestCommandHandler", handlerRegistrySection);
-        Assert.DoesNotContain("LoggingDecorator", handlerRegistrySection);
-    }
-
-    [Fact]
     public void FullAttribute_MultipleDecorators_AllAppliedToHandler()
     {
         var source = """
@@ -587,40 +550,6 @@ public class GeneratorTests
         var (diagnostics, _) = RunGenerator(source);
 
         Assert.Contains(diagnostics, d => d.Id == "DCTR003");
-    }
-
-    [Fact]
-    public void FullAttribute_GeneratesDecoratorRegistry()
-    {
-        var source = """
-                     using DecoratR;
-
-                     [assembly: DecoratR.GenerateDecoratRRegistrations]
-
-                     public sealed record TestCommand(string Name) : IRequest;
-
-                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
-                     {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
-                             => ValueTask.FromResult("Hello");
-                     }
-
-                     [Decorator(Order = 1)]
-                     public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
-                         where TRequest : IRequest
-                     {
-                         private readonly IRequestHandler<TRequest, TResponse> _inner;
-                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
-                             => _inner.HandleAsync(request, cancellationToken);
-                     }
-                     """;
-
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.First(t => t.Contains("DecoratorRegistry"));
-        Assert.Contains("DecoratorRegistry", registrations);
-        Assert.Contains("LoggingDecorator", registrations);
     }
 
     [Fact]
