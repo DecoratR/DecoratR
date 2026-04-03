@@ -40,15 +40,12 @@ Decorators are registered in application order; the first registered becomes the
 | `DecoratR.Abstractions` | `IRequest`, `IRequestHandler<,>`, `[Decorator]` | net10.0 |
 | `DecoratR` | DI registration, `AddDecoratR()`, `Decorate()` | net10.0 |
 | `DecoratR.Generator` | Roslyn source generator | netstandard2.0 |
-| `DecoratR.Reflection` | Assembly-scanning handler discovery | net10.0 |
 
-Application layer depends on `DecoratR.Abstractions` only. Presentation/host layer wires up `DecoratR` + optionally `DecoratR.Generator` (as analyzer) and/or `DecoratR.Reflection`.
+Application layer depends on `DecoratR.Abstractions` only. Presentation/host layer wires up `DecoratR` + `DecoratR.Generator` (as analyzer).
 
-### Two Registration Paths
+### Registration via Source Generator
 
-**Reflection (runtime):** Call `options.RegisterHandlersFromAssembly(assembly)` inside `AddDecoratR()`. Scans assemblies at startup for `IRequestHandler<,>` implementations.
-
-**Source generator (compile-time):** Decorate the registration class with `[GenerateDecoratRRegistrations]`. The generator emits optimized DI registration code — no runtime reflection. Cross-assembly handler discovery uses generated `[DecoratRHandlerRegistration]` / `[DecoratRHandlerServiceType]` assembly-level attributes. There is also a lighter `[GenerateHandlerRegistrations]` attribute that emits only a `HandlerRegistry.Handlers` list.
+Decorate the host assembly with `[assembly: GenerateDecoratRRegistrations]`. The generator emits optimized DI registration code at compile time. Cross-assembly handler discovery uses generated `[DecoratRHandlerRegistration]` / `[DecoratRHandlerServiceType]` assembly-level attributes. There is also a lighter `[GenerateHandlerRegistrations]` attribute that emits only a `HandlerRegistry.Handlers` list.
 
 ### Source Generator
 
@@ -63,4 +60,4 @@ Key types: `HandlerMetadata`, `DecoratorMetadata`, `RegistrationMethodMetadata`,
 
 Decorators are ordered by `[Decorator(Order = N)]`. Lower order = outermost (runs first in the pipeline). Same order uses alphabetical/registration order as tiebreaker.
 
-**Reflection path:** `RegisterDecoratorsFromAssembly(assembly)` discovers `[Decorator]` types from assemblies. `AddDecorator(Type, order)` is available for manual registration.
+Manual decorator registration via `AddDecorator(Type, order)` is also available.

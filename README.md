@@ -4,7 +4,7 @@ A lightweight decorator library for .NET that adds cross-cutting concerns to req
 
 ## Concept
 
-DecoratR automatically discovers `IRequestHandler<TRequest, TResponse>` implementations through assembly scanning and wraps them with any number of decorators. Handlers are resolved directly from the DI container by their interface — no mediator abstraction layer required.
+DecoratR uses a Roslyn source generator to discover `IRequestHandler<TRequest, TResponse>` implementations at compile time and wraps them with any number of decorators. Handlers are resolved directly from the DI container by their interface — no mediator abstraction layer required.
 
 ```
 Request → ExceptionHandling → Logging → Performance → Validation → Handler
@@ -93,14 +93,10 @@ public class RequestLoggingDecorator<TRequest, TResponse>(
 
 ### 4. Register
 
+Add `[assembly: GenerateDecoratRRegistrations]` to the host project (e.g. in `AssemblyInfo.cs`). The source generator emits the `AddDecoratR()` extension method at compile time:
+
 ```csharp
-builder.Services.AddDecoratR(options => options
-    .RegisterHandlersFromAssembly(ApplicationAssembly.Assembly)
-    .AddDecorator(typeof(ExceptionHandlingDecorator<,>))
-    .AddDecorator(typeof(RequestLoggingDecorator<,>))
-    .AddDecorator(typeof(PerformanceLoggingDecorator<,>))
-    .AddCommandDecorator(typeof(ValidationDecorator<,>))
-    .WithLifetime(ServiceLifetime.Scoped));
+builder.Services.AddDecoratR();
 ```
 
 ### 5. Resolve handlers
@@ -122,8 +118,6 @@ app.MapPost("/greet", async (
 
 | Method | Description |
 |---|---|
-| `RegisterHandlersFromAssembly(params Assembly[])` | Scans assemblies for `IRequestHandler<,>` implementations |
-| `RegisterHandlersFromAssembly<T>()` | Scans the assembly containing type `T` |
 | `AddDecorator(Type)` | Registers an open-generic decorator for **all** handlers |
 | `AddDecorator(Type, Func<Type, bool>)` | Registers a decorator with a filter on the request type |
 | `AddCommandDecorator(Type)` | Decorator only for handlers of `ICommand<>` requests |

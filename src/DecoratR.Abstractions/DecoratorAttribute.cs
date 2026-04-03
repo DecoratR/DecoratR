@@ -2,7 +2,7 @@ namespace DecoratR;
 
 /// <summary>
 /// Marks an open-generic class as a decorator in the DecoratR pipeline.
-/// The source generator and reflection-based registration discover decorators via this attribute.
+/// The source generator discovers decorators via this attribute.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public sealed class DecoratorAttribute : Attribute

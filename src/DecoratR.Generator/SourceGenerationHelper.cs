@@ -26,7 +26,7 @@ internal static class SourceGenerationHelper
 
         /// <summary>
         /// Triggers the DecoratR source generator to discover all handlers and decorators in the compilation
-        /// and emit a reflection-free <c>AddDecoratR()</c> extension method on <c>IServiceCollection</c>.
+        /// and emit an <c>AddDecoratR()</c> extension method on <c>IServiceCollection</c>.
         /// Place this attribute in the composition root assembly (e.g. the web API project).
         /// </summary>
         [global::System.AttributeUsage(global::System.AttributeTargets.Assembly)]
