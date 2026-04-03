@@ -3,7 +3,6 @@
     <Project Path="src/DecoratR.Abstractions/DecoratR.Abstractions.csproj" />
     <Project Path="src/DecoratR/DecoratR.csproj" />
     <Project Path="src/DecoratR.Generator/DecoratR.Generator.csproj" />
-    <Project Path="src/DecoratR.Reflection/DecoratR.Reflection.csproj" />
   </Folder>
   <Folder Name="/playground/">
     <Project Path="playground/DecoratR.Sample.Domain/DecoratR.Sample.Domain.csproj" />
