@@ -17,7 +17,6 @@ public static class ServiceCollectionExtensions
 
         private void Decorate(Type serviceType, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type decoratorType)
         {
-            
             var wrappedDescriptor = services.FirstOrDefault(s => s.ServiceType == serviceType) ??
                                     throw new InvalidOperationException(
                                         $"No service of type {serviceType.FullName} has been registered.");

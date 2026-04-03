@@ -19,7 +19,7 @@ internal static class HandlerDetector
     private static HandlerMetadata? GetMetadata(
         GeneratorSyntaxContext context, CancellationToken cancellationToken)
     {
-        var classDeclaration = (ClassDeclarationSyntax)context.Node;
+        var classDeclaration = (ClassDeclarationSyntax) context.Node;
 
         if (context.SemanticModel.GetDeclaredSymbol(classDeclaration, cancellationToken)
             is not INamedTypeSymbol symbol)

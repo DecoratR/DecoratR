@@ -654,8 +654,7 @@ public class GeneratorTests
             using DecoratR;
 
             [assembly: DecoratR.GenerateDecoratRRegistrations]
-            """,
-            "HandlerLib");
+            """);
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
         Assert.Contains("HandlerLib.DecoratRHandlerRegistry.Handlers", registrations);
@@ -683,8 +682,7 @@ public class GeneratorTests
             using DecoratR;
 
             [assembly: DecoratR.GenerateDecoratRRegistrations]
-            """,
-            "HandlerLib");
+            """);
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
@@ -725,8 +723,7 @@ public class GeneratorTests
                 public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
                     => _inner.HandleAsync(request, cancellationToken);
             }
-            """,
-            "HandlerLib");
+            """);
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
@@ -765,8 +762,7 @@ public class GeneratorTests
                 public ValueTask<string> HandleAsync(LocalCommand request, CancellationToken cancellationToken = default)
                     => ValueTask.FromResult("Local");
             }
-            """,
-            "HandlerLib");
+            """);
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
