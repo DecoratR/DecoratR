@@ -10,27 +10,32 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     private const string HandlerAttributeMetadataName = "DecoratR.GenerateHandlerRegistrationsAttribute";
     private const string FullAttributeMetadataName = "DecoratR.GenerateDecoratRRegistrationsAttribute";
     private const string DecoratorAttributeMetadataName = "DecoratR.DecoratorAttribute";
-    private const string HandlerRegistrationAttributeName = "DecoratRHandlerRegistrationAttribute";
-    private const string HandlerServiceTypeAttributeName = "DecoratRHandlerServiceTypeAttribute";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        // Step 1: Emit the marker attributes
+        RegisterAttributes(context);
+        RegisterHandlerOnlyPath(context);
+        RegisterFullPath(context);
+    }
+
+    private static void RegisterAttributes(IncrementalGeneratorInitializationContext context)
+    {
         context.RegisterPostInitializationOutput(static ctx =>
         {
             ctx.AddSource("GenerateHandlerRegistrationsAttribute.g.cs",
-                SourceGenerationHelper.GenerateHandlerAttribute());
+                AttributeEmitter.GenerateHandlerAttribute());
             ctx.AddSource("GenerateDecoratRRegistrationsAttribute.g.cs",
-                SourceGenerationHelper.GenerateFullAttribute());
+                AttributeEmitter.GenerateFullAttribute());
             ctx.AddSource("DecoratRHandlerRegistrationAttribute.g.cs",
-                SourceGenerationHelper.GenerateHandlerRegistrationAttribute());
+                AttributeEmitter.GenerateHandlerRegistrationAttribute());
             ctx.AddSource("DecoratRHandlerServiceTypeAttribute.g.cs",
-                SourceGenerationHelper.GenerateHandlerServiceTypeAttribute());
+                AttributeEmitter.GenerateHandlerServiceTypeAttribute());
         });
+    }
 
-        // ── Handler-only path ([GenerateHandlerRegistrations]) ──────────────
-
-        var hasHandlerAttribute = context.SyntaxProvider
+    private static void RegisterHandlerOnlyPath(IncrementalGeneratorInitializationContext context)
+    {
+        var hasAttribute = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 HandlerAttributeMetadataName,
                 static (_, _) => true,
@@ -38,28 +43,28 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             .Collect()
             .Select(static (items, _) => items.Length > 0);
 
-        var localHandlers = BuildLocalHandlerProvider(context);
+        var localHandlers = HandlerDetector.BuildProvider(context).Collect();
+        var assemblyName = context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Unknown");
 
-        var collectedLocalHandlers = localHandlers.Collect();
+        var combined = hasAttribute
+            .Combine(localHandlers)
+            .Combine(assemblyName);
 
-        var handlerOnlyCombined = hasHandlerAttribute
-            .Combine(collectedLocalHandlers)
-            .Combine(context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Unknown"));
-
-        context.RegisterSourceOutput(handlerOnlyCombined, static (spc, source) =>
+        context.RegisterSourceOutput(combined, static (spc, source) =>
         {
-            var ((hasAttr, handlers), assemblyName) = source;
+            var ((hasAttr, handlers), name) = source;
             if (!hasAttr)
             {
                 return;
             }
 
-            EmitHandlerRegistry(spc, assemblyName, handlers);
+            EmitHandlerRegistry(spc, name, handlers);
         });
+    }
 
-        // ── Full path ([GenerateDecoratRRegistrations]) ──────────────────────
-
-        var hasFullAttribute = context.SyntaxProvider
+    private static void RegisterFullPath(IncrementalGeneratorInitializationContext context)
+    {
+        var hasAttribute = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 FullAttributeMetadataName,
                 static (_, _) => true,
@@ -67,30 +72,31 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             .Collect()
             .Select(static (items, _) => items.Length > 0);
 
-        // Local decorators (open-generic classes with [Decorator] attribute)
+        var localHandlers = HandlerDetector.BuildProvider(context).Collect();
+
         var localDecorators = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 DecoratorAttributeMetadataName,
                 static (node, _) => node is ClassDeclarationSyntax,
-                static (ctx, _) => GetDecoratorMetadata(ctx))
+                static (ctx, _) => DecoratorDetector.GetMetadata(ctx))
             .Where(static m => m is not null)
-            .Select(static (m, _) => m!);
+            .Select(static (m, _) => m!)
+            .Collect();
 
-        var collectedDecorators = localDecorators.Collect();
-
-        // Cross-assembly: discover registration methods and service types via assembly attributes
         var referencedRegistrations = context.CompilationProvider
-            .Select(static (compilation, ct) => GetRegistrationDataFromReferencedAssemblies(compilation, ct));
+            .Select(static (compilation, ct) => ReferencedAssemblyScanner.Scan(compilation, ct));
 
-        var fullCombined = hasFullAttribute
-            .Combine(collectedLocalHandlers)
+        var assemblyName = context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Unknown");
+
+        var combined = hasAttribute
+            .Combine(localHandlers)
             .Combine(referencedRegistrations)
-            .Combine(collectedDecorators)
-            .Combine(context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Unknown"));
+            .Combine(localDecorators)
+            .Combine(assemblyName);
 
-        context.RegisterSourceOutput(fullCombined, static (spc, source) =>
+        context.RegisterSourceOutput(combined, static (spc, source) =>
         {
-            var ((((hasAttr, localH), referenced), decorators), assemblyName) = source;
+            var ((((hasAttr, localH), referenced), decorators), name) = source;
             if (!hasAttr)
             {
                 return;
@@ -107,150 +113,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
                 .ThenBy(d => d.DecoratorFullyQualifiedName)
                 .ToArray();
 
-            EmitFullRegistrations(spc, assemblyName, sortedLocalHandlers, referenced.RegistryClassNames, referenced.ServiceTypes, sortedDecorators);
+            EmitFullRegistrations(spc, name, sortedLocalHandlers, referenced, sortedDecorators);
         });
     }
-
-    // ─── Handler detection ────────────────────────────────────────────────────
-
-    private static IncrementalValuesProvider<HandlerMetadata> BuildLocalHandlerProvider(
-        IncrementalGeneratorInitializationContext context)
-    {
-        return context.SyntaxProvider
-            .CreateSyntaxProvider(
-                static (node, _) => node is ClassDeclarationSyntax,
-                static (ctx, ct) => GetHandlerMetadata(ctx, ct))
-            .Where(static m => m is not null)
-            .Select(static (m, _) => m!);
-    }
-
-    private static HandlerMetadata? GetHandlerMetadata(
-        GeneratorSyntaxContext context, CancellationToken cancellationToken)
-    {
-        var classDeclaration = (ClassDeclarationSyntax) context.Node;
-
-        if (context.SemanticModel.GetDeclaredSymbol(classDeclaration, cancellationToken)
-            is not INamedTypeSymbol symbol)
-        {
-            return null;
-        }
-
-        // Skip abstract, static, and open generic types
-        if (symbol.IsAbstract || symbol.IsStatic || symbol.TypeParameters.Length > 0)
-        {
-            return null;
-        }
-
-        return ExtractHandlerMetadata(symbol);
-    }
-
-    private static HandlerMetadata? ExtractHandlerMetadata(INamedTypeSymbol symbol)
-    {
-        foreach (var iface in symbol.AllInterfaces)
-        {
-            if (iface.OriginalDefinition.ToDisplayString() != "DecoratR.IRequestHandler<TRequest, TResponse>")
-            {
-                continue;
-            }
-
-            if (iface.TypeArguments.Length != 2)
-            {
-                continue;
-            }
-
-            // Exclude decorators: classes annotated with [Decorator]
-            var isDecorator = symbol.GetAttributes().Any(a =>
-                a.AttributeClass?.ToDisplayString() == "DecoratR.DecoratorAttribute");
-
-            if (isDecorator)
-            {
-                return null;
-            }
-
-            return new HandlerMetadata(
-                symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                iface.TypeArguments[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-                iface.TypeArguments[1].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        }
-
-        return null;
-    }
-
-    // ─── Cross-assembly registration discovery via assembly attributes ───────
-
-    private static ReferencedRegistrationData GetRegistrationDataFromReferencedAssemblies(
-        Compilation compilation, CancellationToken cancellationToken)
-    {
-        var registryClassNames = new List<string>();
-        var serviceTypes = new List<HandlerMetadata>();
-
-        foreach (var referencedAssembly in compilation.SourceModule.ReferencedAssemblySymbols)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            foreach (var attr in referencedAssembly.GetAttributes())
-            {
-                var attrName = attr.AttributeClass?.Name;
-
-                if (attrName == HandlerRegistrationAttributeName && attr.ConstructorArguments.Length == 1 && attr.ConstructorArguments[0].Value is string className)
-                {
-                    registryClassNames.Add(className);
-                }
-                else if (attrName == HandlerServiceTypeAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string requestType && attr.ConstructorArguments[1].Value is string responseType)
-                {
-                    serviceTypes.Add(new HandlerMetadata(string.Empty, requestType, responseType));
-                }
-            }
-        }
-
-        return new ReferencedRegistrationData(registryClassNames, serviceTypes);
-    }
-
-    // ─── Decorator detection ──────────────────────────────────────────────────
-
-    private static DecoratorMetadata? GetDecoratorMetadata(GeneratorAttributeSyntaxContext context)
-    {
-        if (context.TargetSymbol is not INamedTypeSymbol symbol)
-        {
-            return null;
-        }
-
-        // Decorators must be open generic
-        if (symbol.TypeParameters.Length == 0)
-        {
-            return null;
-        }
-
-        if (symbol.IsAbstract || symbol.IsStatic)
-        {
-            return null;
-        }
-
-        // Extract Order from [Decorator] attribute
-        var order = 0;
-        foreach (var attr in context.Attributes)
-        {
-            foreach (var namedArg in attr.NamedArguments)
-            {
-                if (namedArg.Key == "Order" && namedArg.Value.Value is int orderValue)
-                {
-                    order = orderValue;
-                }
-            }
-        }
-
-        // Store as open generic form (without type args)
-        var openGenericName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        var angleIndex = openGenericName.IndexOf('<');
-        if (angleIndex >= 0)
-        {
-            openGenericName = openGenericName.Substring(0, angleIndex);
-        }
-
-        return new DecoratorMetadata(openGenericName, order);
-    }
-
-    // ─── Emission helpers ─────────────────────────────────────────────────────
 
     private static void EmitHandlerRegistry(
         SourceProductionContext spc,
@@ -269,18 +134,17 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 
         var sorted = handlers.OrderBy(h => h.HandlerFullyQualifiedName).ToList();
         spc.AddSource("DecoratRHandlerRegistrations.g.cs",
-            SourceGenerationHelper.GenerateHandlerRegistry(assemblyName, sorted));
+            HandlerRegistryEmitter.Generate(assemblyName, sorted));
     }
 
     private static void EmitFullRegistrations(
         SourceProductionContext spc,
         string assemblyName,
         IReadOnlyList<HandlerMetadata> localHandlers,
-        IReadOnlyList<string> referencedRegistryClassNames,
-        IReadOnlyList<HandlerMetadata> referencedServiceTypes,
+        ReferencedRegistrationData referenced,
         IReadOnlyList<DecoratorMetadata> decorators)
     {
-        var totalHandlerCount = localHandlers.Count + referencedServiceTypes.Count;
+        var totalHandlerCount = localHandlers.Count + referenced.ServiceTypes.Length;
 
         if (totalHandlerCount == 0)
         {
@@ -300,60 +164,8 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         }
 
         spc.AddSource("DecoratRRegistrations.g.cs",
-            SourceGenerationHelper.GenerateFullRegistrations(assemblyName, localHandlers, referencedRegistryClassNames, referencedServiceTypes, decorators));
-    }
-}
-
-/// <summary>
-/// Holds cross-assembly registration data discovered from assembly-level attributes.
-/// </summary>
-internal sealed class ReferencedRegistrationData : IEquatable<ReferencedRegistrationData>
-{
-    public ReferencedRegistrationData(
-        IReadOnlyList<string> registryClassNames,
-        IReadOnlyList<HandlerMetadata> serviceTypes)
-    {
-        RegistryClassNames = registryClassNames;
-        ServiceTypes = serviceTypes;
-    }
-
-    public IReadOnlyList<string> RegistryClassNames { get; }
-
-    public IReadOnlyList<HandlerMetadata> ServiceTypes { get; }
-
-    public bool Equals(ReferencedRegistrationData? other)
-    {
-        if (other is null)
-        {
-            return false;
-        }
-
-        if (ReferenceEquals(this, other))
-        {
-            return true;
-        }
-
-        return RegistryClassNames.SequenceEqual(other.RegistryClassNames) && ServiceTypes.SequenceEqual(other.ServiceTypes);
-    }
-
-    public override bool Equals(object? obj) => Equals(obj as ReferencedRegistrationData);
-
-    public override int GetHashCode()
-    {
-        unchecked
-        {
-            var hash = 17;
-            foreach (var name in RegistryClassNames)
-            {
-                hash = hash * 31 + name.GetHashCode();
-            }
-
-            foreach (var s in ServiceTypes)
-            {
-                hash = hash * 31 + s.GetHashCode();
-            }
-
-            return hash;
-        }
+            FullRegistrationEmitter.Generate(assemblyName, localHandlers,
+                referenced.RegistryClassNames, referenced.ServiceTypes,
+                decorators));
     }
 }
