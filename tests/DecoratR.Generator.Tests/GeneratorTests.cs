@@ -36,11 +36,10 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        // 5 attribute files are emitted regardless, but no registrations
-        Assert.Equal(5, generatedTrees.Length);
+        // 4 attribute files are emitted regardless, but no registrations
+        Assert.Equal(4, generatedTrees.Length);
         Assert.Contains(generatedTrees, t => t.Contains("GenerateHandlerRegistrationsAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("GenerateDecoratRRegistrationsAttribute"));
-        Assert.Contains(generatedTrees, t => t.Contains("DecoratRRegistrationMethodAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRHandlerRegistrationAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRHandlerServiceTypeAttribute"));
         Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
@@ -65,7 +64,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        Assert.Equal(6, generatedTrees.Length); // 5 attributes + registrations
+        Assert.Equal(5, generatedTrees.Length); // 4 attributes + registrations
         var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
 
         Assert.Contains("TestCommandHandler", registrations);
@@ -301,7 +300,7 @@ public class GeneratorTests
         var (_, generatedTrees) = RunGenerator(source);
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
-        Assert.Contains("[global::DecoratR.DecoratRRegistrationMethod]", registrations);
+        Assert.DoesNotContain("[global::DecoratR.DecoratRRegistrationMethod]", registrations);
     }
 
     [Fact]

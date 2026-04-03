@@ -22,8 +22,6 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
                 SourceGenerationHelper.GenerateHandlerAttribute());
             ctx.AddSource("GenerateDecoratRRegistrationsAttribute.g.cs",
                 SourceGenerationHelper.GenerateFullAttribute());
-            ctx.AddSource("DecoratRRegistrationMethodAttribute.g.cs",
-                SourceGenerationHelper.GenerateRegistrationMethodAttribute());
             ctx.AddSource("DecoratRHandlerRegistrationAttribute.g.cs",
                 SourceGenerationHelper.GenerateHandlerRegistrationAttribute());
             ctx.AddSource("DecoratRHandlerServiceTypeAttribute.g.cs",
