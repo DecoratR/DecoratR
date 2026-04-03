@@ -5,10 +5,10 @@ using DecoratR.Sample.Presentation.Endpoints;
 using FluentValidation;
 using Scalar.AspNetCore;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateSlimBuilder(args);
 
-// Reflection-free: handlers and decorators discovered at compile-time by the DecoratR source generator.
-// For custom decorator ordering, use: .AddDecoratR(options => options.AddHandlers(...).AddDecorator(...))
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Add(DefaultSerializerContext.Default));
+
 builder.Services.AddDecoratR();
 
 builder.Services.AddValidatorsFromAssembly(ApplicationAssembly.Assembly);

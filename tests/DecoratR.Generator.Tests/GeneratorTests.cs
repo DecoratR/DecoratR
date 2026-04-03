@@ -248,7 +248,7 @@ public class GeneratorTests
                      }
                      """;
 
-        var (_, generatedTrees) = RunGenerator(source, assemblyName: "My.Test.Assembly");
+        var (_, generatedTrees) = RunGenerator(source, "My.Test.Assembly");
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
         Assert.Contains("namespace My.Test.Assembly;", registrations);
@@ -394,7 +394,7 @@ public class GeneratorTests
                      }
                      """;
 
-        var (_, generatedTrees) = RunGenerator(source, assemblyName: "My.Test.Assembly");
+        var (_, generatedTrees) = RunGenerator(source, "My.Test.Assembly");
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
         Assert.Contains("AddDecoratRHandlers_My_Test_Assembly", registrations);
@@ -637,25 +637,25 @@ public class GeneratorTests
     public void TwoStage_CompositionRoot_CallsReferencedRegistrationMethod()
     {
         var (_, generatedTrees) = RunTwoStageGenerator(
-            handlerSource: """
-                           using DecoratR;
+            """
+            using DecoratR;
 
-                           [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                           public sealed record TestCommand(string Name) : IRequest;
+            public sealed record TestCommand(string Name) : IRequest;
 
-                           public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
-                           {
-                               public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
-                                   => ValueTask.FromResult("Hello");
-                           }
-                           """,
-            compositionRootSource: """
-                                   using DecoratR;
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+            """,
+            """
+            using DecoratR;
 
-                                   [assembly: DecoratR.GenerateDecoratRRegistrations]
-                                   """,
-            handlerAssemblyName: "HandlerLib");
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+            """,
+            "HandlerLib");
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
         Assert.Contains("AddDecoratRHandlers_HandlerLib", registrations);
@@ -666,25 +666,25 @@ public class GeneratorTests
     public void TwoStage_InternalHandler_DiscoveredViaAssemblyAttributes()
     {
         var (_, generatedTrees) = RunTwoStageGenerator(
-            handlerSource: """
-                           using DecoratR;
+            """
+            using DecoratR;
 
-                           [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                           public sealed record TestCommand(string Name) : IRequest;
+            public sealed record TestCommand(string Name) : IRequest;
 
-                           internal sealed class InternalHandler : IRequestHandler<TestCommand, string>
-                           {
-                               public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
-                                   => ValueTask.FromResult("Hello");
-                           }
-                           """,
-            compositionRootSource: """
-                                   using DecoratR;
+            internal sealed class InternalHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+            """,
+            """
+            using DecoratR;
 
-                                   [assembly: DecoratR.GenerateDecoratRRegistrations]
-                                   """,
-            handlerAssemblyName: "HandlerLib");
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+            """,
+            "HandlerLib");
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
@@ -698,35 +698,35 @@ public class GeneratorTests
     public void TwoStage_DecoratorsAppliedUsingReferencedServiceTypes()
     {
         var (_, generatedTrees) = RunTwoStageGenerator(
-            handlerSource: """
-                           using DecoratR;
+            """
+            using DecoratR;
 
-                           [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                           public sealed record TestCommand(string Name) : IRequest;
+            public sealed record TestCommand(string Name) : IRequest;
 
-                           public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
-                           {
-                               public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
-                                   => ValueTask.FromResult("Hello");
-                           }
-                           """,
-            compositionRootSource: """
-                                   using DecoratR;
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+            """,
+            """
+            using DecoratR;
 
-                                   [assembly: DecoratR.GenerateDecoratRRegistrations]
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
 
-                                   [Decorator(Order = 1)]
-                                   public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
-                                       where TRequest : IRequest
-                                   {
-                                       private readonly IRequestHandler<TRequest, TResponse> _inner;
-                                       public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                                       public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
-                                           => _inner.HandleAsync(request, cancellationToken);
-                                   }
-                                   """,
-            handlerAssemblyName: "HandlerLib");
+            [Decorator(Order = 1)]
+            public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            "HandlerLib");
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
@@ -740,33 +740,33 @@ public class GeneratorTests
     public void TwoStage_MixedLocalAndReferencedHandlers()
     {
         var (_, generatedTrees) = RunTwoStageGenerator(
-            handlerSource: """
-                           using DecoratR;
+            """
+            using DecoratR;
 
-                           [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateHandlerRegistrations]
 
-                           public sealed record RemoteCommand(string Name) : IRequest;
+            public sealed record RemoteCommand(string Name) : IRequest;
 
-                           public sealed class RemoteHandler : IRequestHandler<RemoteCommand, string>
-                           {
-                               public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken = default)
-                                   => ValueTask.FromResult("Remote");
-                           }
-                           """,
-            compositionRootSource: """
-                                   using DecoratR;
+            public sealed class RemoteHandler : IRequestHandler<RemoteCommand, string>
+            {
+                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Remote");
+            }
+            """,
+            """
+            using DecoratR;
 
-                                   [assembly: DecoratR.GenerateDecoratRRegistrations]
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
 
-                                   public sealed record LocalCommand(string Name) : IRequest;
+            public sealed record LocalCommand(string Name) : IRequest;
 
-                                   public sealed class LocalHandler : IRequestHandler<LocalCommand, string>
-                                   {
-                                       public ValueTask<string> HandleAsync(LocalCommand request, CancellationToken cancellationToken = default)
-                                           => ValueTask.FromResult("Local");
-                                   }
-                                   """,
-            handlerAssemblyName: "HandlerLib");
+            public sealed class LocalHandler : IRequestHandler<LocalCommand, string>
+            {
+                public ValueTask<string> HandleAsync(LocalCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Local");
+            }
+            """,
+            "HandlerLib");
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 

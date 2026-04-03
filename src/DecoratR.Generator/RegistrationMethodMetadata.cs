@@ -10,10 +10,17 @@ internal sealed class RegistrationMethodMetadata(
 
     public bool Equals(RegistrationMethodMetadata? other)
     {
-        if (other is null) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return FullyQualifiedClassName == other.FullyQualifiedClassName
-            && MethodName == other.MethodName;
+        if (other is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return FullyQualifiedClassName == other.FullyQualifiedClassName && MethodName == other.MethodName;
     }
 
     public override bool Equals(object? obj) => Equals(obj as RegistrationMethodMetadata);

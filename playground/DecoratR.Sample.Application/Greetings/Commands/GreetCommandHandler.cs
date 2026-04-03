@@ -3,7 +3,7 @@ using DecoratR.Sample.Domain;
 
 namespace DecoratR.Sample.Application.Greetings.Commands;
 
-public sealed class GreetCommandHandler(IGreetingRepository repository)
+internal sealed class GreetCommandHandler(IGreetingRepository repository)
     : IRequestHandler<GreetCommand, string>
 {
     public async ValueTask<string> HandleAsync(GreetCommand command, CancellationToken cancellationToken = default)

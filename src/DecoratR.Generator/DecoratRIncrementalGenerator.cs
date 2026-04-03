@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -50,7 +51,11 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(handlerOnlyCombined, static (spc, source) =>
         {
             var ((hasAttr, handlers), assemblyName) = source;
-            if (!hasAttr) return;
+            if (!hasAttr)
+            {
+                return;
+            }
+
             EmitHandlerRegistry(spc, assemblyName, handlers);
         });
 
@@ -88,7 +93,10 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(fullCombined, static (spc, source) =>
         {
             var ((((hasAttr, localH), referenced), decorators), assemblyName) = source;
-            if (!hasAttr) return;
+            if (!hasAttr)
+            {
+                return;
+            }
 
             var sortedLocalHandlers = localH
                 .Distinct()
@@ -121,7 +129,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     private static HandlerMetadata? GetHandlerMetadata(
         GeneratorSyntaxContext context, CancellationToken cancellationToken)
     {
-        var classDeclaration = (ClassDeclarationSyntax)context.Node;
+        var classDeclaration = (ClassDeclarationSyntax) context.Node;
 
         if (context.SemanticModel.GetDeclaredSymbol(classDeclaration, cancellationToken)
             is not INamedTypeSymbol symbol)
@@ -131,7 +139,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 
         // Skip abstract, static, and open generic types
         if (symbol.IsAbstract || symbol.IsStatic || symbol.TypeParameters.Length > 0)
+        {
             return null;
+        }
 
         return ExtractHandlerMetadata(symbol);
     }
@@ -141,17 +151,23 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         foreach (var iface in symbol.AllInterfaces)
         {
             if (iface.OriginalDefinition.ToDisplayString() != "DecoratR.IRequestHandler<TRequest, TResponse>")
+            {
                 continue;
+            }
 
             if (iface.TypeArguments.Length != 2)
+            {
                 continue;
+            }
 
             // Exclude decorators: classes annotated with [Decorator]
             var isDecorator = symbol.GetAttributes().Any(a =>
                 a.AttributeClass?.ToDisplayString() == "DecoratR.DecoratorAttribute");
 
             if (isDecorator)
+            {
                 return null;
+            }
 
             return new HandlerMetadata(
                 symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
@@ -178,17 +194,11 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             {
                 var attrName = attr.AttributeClass?.Name;
 
-                if (attrName == HandlerRegistrationAttributeName
-                    && attr.ConstructorArguments.Length == 2
-                    && attr.ConstructorArguments[0].Value is string className
-                    && attr.ConstructorArguments[1].Value is string methodName)
+                if (attrName == HandlerRegistrationAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string className && attr.ConstructorArguments[1].Value is string methodName)
                 {
                     methods.Add(new RegistrationMethodMetadata(className, methodName));
                 }
-                else if (attrName == HandlerServiceTypeAttributeName
-                    && attr.ConstructorArguments.Length == 2
-                    && attr.ConstructorArguments[0].Value is string requestType
-                    && attr.ConstructorArguments[1].Value is string responseType)
+                else if (attrName == HandlerServiceTypeAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string requestType && attr.ConstructorArguments[1].Value is string responseType)
                 {
                     serviceTypes.Add(new HandlerMetadata(string.Empty, requestType, responseType));
                 }
@@ -203,14 +213,20 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     private static DecoratorMetadata? GetDecoratorMetadata(GeneratorAttributeSyntaxContext context)
     {
         if (context.TargetSymbol is not INamedTypeSymbol symbol)
+        {
             return null;
+        }
 
         // Decorators must be open generic
         if (symbol.TypeParameters.Length == 0)
+        {
             return null;
+        }
 
         if (symbol.IsAbstract || symbol.IsStatic)
+        {
             return null;
+        }
 
         // Extract Order from [Decorator] attribute
         var order = 0;
@@ -219,7 +235,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             foreach (var namedArg in attr.NamedArguments)
             {
                 if (namedArg.Key == "Order" && namedArg.Value.Value is int orderValue)
+                {
                     order = orderValue;
+                }
             }
         }
 
@@ -227,7 +245,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         var openGenericName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var angleIndex = openGenericName.IndexOf('<');
         if (angleIndex >= 0)
+        {
             openGenericName = openGenericName.Substring(0, angleIndex);
+        }
 
         return new DecoratorMetadata(openGenericName, order);
     }
@@ -237,7 +257,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     private static void EmitHandlerRegistry(
         SourceProductionContext spc,
         string assemblyName,
-        System.Collections.Immutable.ImmutableArray<HandlerMetadata> handlers)
+        ImmutableArray<HandlerMetadata> handlers)
     {
         if (handlers.Length == 0)
         {
@@ -291,9 +311,6 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 /// </summary>
 internal sealed class ReferencedRegistrationData : IEquatable<ReferencedRegistrationData>
 {
-    public IReadOnlyList<RegistrationMethodMetadata> Methods { get; }
-    public IReadOnlyList<HandlerMetadata> ServiceTypes { get; }
-
     public ReferencedRegistrationData(
         IReadOnlyList<RegistrationMethodMetadata> methods,
         IReadOnlyList<HandlerMetadata> serviceTypes)
@@ -302,12 +319,23 @@ internal sealed class ReferencedRegistrationData : IEquatable<ReferencedRegistra
         ServiceTypes = serviceTypes;
     }
 
+    public IReadOnlyList<RegistrationMethodMetadata> Methods { get; }
+
+    public IReadOnlyList<HandlerMetadata> ServiceTypes { get; }
+
     public bool Equals(ReferencedRegistrationData? other)
     {
-        if (other is null) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return Methods.SequenceEqual(other.Methods)
-            && ServiceTypes.SequenceEqual(other.ServiceTypes);
+        if (other is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return Methods.SequenceEqual(other.Methods) && ServiceTypes.SequenceEqual(other.ServiceTypes);
     }
 
     public override bool Equals(object? obj) => Equals(obj as ReferencedRegistrationData);
@@ -317,8 +345,16 @@ internal sealed class ReferencedRegistrationData : IEquatable<ReferencedRegistra
         unchecked
         {
             var hash = 17;
-            foreach (var m in Methods) hash = hash * 31 + m.GetHashCode();
-            foreach (var s in ServiceTypes) hash = hash * 31 + s.GetHashCode();
+            foreach (var m in Methods)
+            {
+                hash = hash * 31 + m.GetHashCode();
+            }
+
+            foreach (var s in ServiceTypes)
+            {
+                hash = hash * 31 + s.GetHashCode();
+            }
+
             return hash;
         }
     }

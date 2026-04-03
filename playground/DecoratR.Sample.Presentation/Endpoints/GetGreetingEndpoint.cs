@@ -17,6 +17,6 @@ public static class GetGreetingEndpoint
         CancellationToken cancellationToken = default)
     {
         var result = await handler.HandleAsync(new GetGreetingQuery(name), cancellationToken);
-        return Results.Ok(new { Message = result });
+        return Results.Ok(new Response(result));
     }
 }

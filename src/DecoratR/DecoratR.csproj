@@ -2,7 +2,7 @@
   <PropertyGroup>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <InternalsVisibleTo Include="DecoratR.Tests" />
   </ItemGroup>

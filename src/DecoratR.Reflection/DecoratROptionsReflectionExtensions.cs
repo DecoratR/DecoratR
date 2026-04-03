@@ -31,10 +31,7 @@ public static class DecoratROptionsReflectionExtensions
     /// Scan the assembly containing <typeparamref name="T"/> for types implementing
     /// <see cref="IRequestHandler{TRequest,TResponse}"/> and register them.
     /// </summary>
-    public static DecoratROptions RegisterHandlersFromAssembly<T>(this DecoratROptions options)
-    {
-        return options.RegisterHandlersFromAssembly(typeof(T).Assembly);
-    }
+    public static DecoratROptions RegisterHandlersFromAssembly<T>(this DecoratROptions options) => options.RegisterHandlersFromAssembly(typeof(T).Assembly);
 
     /// <summary>
     /// Scan the given assemblies for open-generic types annotated with <see cref="DecoratorAttribute"/>
@@ -70,12 +67,16 @@ public static class DecoratROptionsReflectionExtensions
         foreach (var type in assembly.GetTypes())
         {
             if (!type.IsClass || type.IsAbstract || type.IsGenericTypeDefinition)
+            {
                 continue;
+            }
 
             foreach (var @interface in type.GetInterfaces())
             {
                 if (!@interface.IsGenericType || @interface.GetGenericTypeDefinition() != handlerInterface)
+                {
                     continue;
+                }
 
                 handlers.Add((@interface, type));
                 break;
@@ -92,17 +93,23 @@ public static class DecoratROptionsReflectionExtensions
         foreach (var type in assembly.GetTypes())
         {
             if (!type.IsClass || !type.IsGenericTypeDefinition)
+            {
                 continue;
+            }
 
             var attr = type.GetCustomAttribute<DecoratorAttribute>();
             if (attr is null)
+            {
                 continue;
+            }
 
             var implementsHandler = type.GetInterfaces()
                 .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == handlerInterface);
 
             if (!implementsHandler)
+            {
                 continue;
+            }
 
             options.AddDecorator(type, attr.Order);
         }

@@ -142,6 +142,7 @@ internal static class SourceGenerationHelper
             var responseName = StripGlobalPrefix(handler.ResponseFullyQualifiedName);
             sb.AppendIndentedLine(1, $"/// <item><description><c>{handlerName}</c> handles <c>IRequestHandler&lt;{requestName}, {responseName}&gt;</c></description></item>");
         }
+
         sb.AppendIndentedLine(1, "/// </list>");
         sb.AppendIndentedLine(1, "/// </summary>");
 
@@ -152,7 +153,7 @@ internal static class SourceGenerationHelper
 
         foreach (var handler in handlers)
         {
-            sb.AppendIndentedLine(2, $"services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
+            sb.AppendIndentedLine(2, "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
             sb.AppendIndentedLine(3, $"typeof(global::DecoratR.IRequestHandler<{handler.RequestFullyQualifiedName}, {handler.ResponseFullyQualifiedName}>),");
             sb.AppendIndentedLine(3, $"typeof({handler.HandlerFullyQualifiedName}),");
             sb.AppendIndentedLine(3, "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient));");
@@ -213,12 +214,14 @@ internal static class SourceGenerationHelper
         if (localHandlers.Count > 0)
         {
             if (referencedMethods.Count > 0)
+            {
                 sb.AppendLine();
+            }
 
             sb.AppendIndentedLine(2, "// Register local handlers");
             foreach (var handler in localHandlers)
             {
-                sb.AppendIndentedLine(2, $"services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
+                sb.AppendIndentedLine(2, "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
                 sb.AppendIndentedLine(3, $"typeof(global::DecoratR.IRequestHandler<{handler.RequestFullyQualifiedName}, {handler.ResponseFullyQualifiedName}>),");
                 sb.AppendIndentedLine(3, $"typeof({handler.HandlerFullyQualifiedName}),");
                 sb.AppendIndentedLine(3, "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient));");
@@ -246,7 +249,7 @@ internal static class SourceGenerationHelper
             {
                 foreach (var decorator in reversedDecorators)
                 {
-                    sb.AppendIndentedLine(2, $"global::DecoratR.ServiceCollectionExtensions.Decorate<");
+                    sb.AppendIndentedLine(2, "global::DecoratR.ServiceCollectionExtensions.Decorate<");
                     sb.AppendIndentedLine(3, $"global::DecoratR.IRequestHandler<{requestType}, {responseType}>,");
                     sb.AppendIndentedLine(3, $"{decorator.DecoratorFullyQualifiedName}<{requestType}, {responseType}>,");
                     sb.AppendIndentedLine(3, $"{requestType},");
@@ -273,6 +276,7 @@ internal static class SourceGenerationHelper
         {
             sb.Append(char.IsLetterOrDigit(c) ? c : '_');
         }
+
         return sb.ToString();
     }
 }
