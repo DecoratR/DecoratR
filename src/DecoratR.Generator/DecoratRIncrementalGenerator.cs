@@ -99,15 +99,15 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             var sortedLocalHandlers = localH
                 .Distinct()
                 .OrderBy(h => h.HandlerFullyQualifiedName)
-                .ToList();
+                .ToArray();
 
             var sortedDecorators = decorators
                 .Distinct()
                 .OrderBy(d => d.Order)
                 .ThenBy(d => d.DecoratorFullyQualifiedName)
-                .ToList();
+                .ToArray();
 
-            EmitFullRegistrations(spc, assemblyName, sortedLocalHandlers, referenced.Methods, referenced.ServiceTypes, sortedDecorators);
+            EmitFullRegistrations(spc, assemblyName, sortedLocalHandlers, referenced.RegistryClassNames, referenced.ServiceTypes, sortedDecorators);
         });
     }
 
@@ -181,7 +181,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     private static ReferencedRegistrationData GetRegistrationDataFromReferencedAssemblies(
         Compilation compilation, CancellationToken cancellationToken)
     {
-        var methods = new List<RegistrationMethodMetadata>();
+        var registryClassNames = new List<string>();
         var serviceTypes = new List<HandlerMetadata>();
 
         foreach (var referencedAssembly in compilation.SourceModule.ReferencedAssemblySymbols)
@@ -192,9 +192,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             {
                 var attrName = attr.AttributeClass?.Name;
 
-                if (attrName == HandlerRegistrationAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string className && attr.ConstructorArguments[1].Value is string methodName)
+                if (attrName == HandlerRegistrationAttributeName && attr.ConstructorArguments.Length == 1 && attr.ConstructorArguments[0].Value is string className)
                 {
-                    methods.Add(new RegistrationMethodMetadata(className, methodName));
+                    registryClassNames.Add(className);
                 }
                 else if (attrName == HandlerServiceTypeAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string requestType && attr.ConstructorArguments[1].Value is string responseType)
                 {
@@ -203,7 +203,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             }
         }
 
-        return new ReferencedRegistrationData(methods, serviceTypes);
+        return new ReferencedRegistrationData(registryClassNames, serviceTypes);
     }
 
     // ─── Decorator detection ──────────────────────────────────────────────────
@@ -276,7 +276,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         SourceProductionContext spc,
         string assemblyName,
         IReadOnlyList<HandlerMetadata> localHandlers,
-        IReadOnlyList<RegistrationMethodMetadata> referencedMethods,
+        IReadOnlyList<string> referencedRegistryClassNames,
         IReadOnlyList<HandlerMetadata> referencedServiceTypes,
         IReadOnlyList<DecoratorMetadata> decorators)
     {
@@ -300,7 +300,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         }
 
         spc.AddSource("DecoratRRegistrations.g.cs",
-            SourceGenerationHelper.GenerateFullRegistrations(assemblyName, localHandlers, referencedMethods, referencedServiceTypes, decorators));
+            SourceGenerationHelper.GenerateFullRegistrations(assemblyName, localHandlers, referencedRegistryClassNames, referencedServiceTypes, decorators));
     }
 }
 
@@ -310,14 +310,14 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 internal sealed class ReferencedRegistrationData : IEquatable<ReferencedRegistrationData>
 {
     public ReferencedRegistrationData(
-        IReadOnlyList<RegistrationMethodMetadata> methods,
+        IReadOnlyList<string> registryClassNames,
         IReadOnlyList<HandlerMetadata> serviceTypes)
     {
-        Methods = methods;
+        RegistryClassNames = registryClassNames;
         ServiceTypes = serviceTypes;
     }
 
-    public IReadOnlyList<RegistrationMethodMetadata> Methods { get; }
+    public IReadOnlyList<string> RegistryClassNames { get; }
 
     public IReadOnlyList<HandlerMetadata> ServiceTypes { get; }
 
@@ -333,7 +333,7 @@ internal sealed class ReferencedRegistrationData : IEquatable<ReferencedRegistra
             return true;
         }
 
-        return Methods.SequenceEqual(other.Methods) && ServiceTypes.SequenceEqual(other.ServiceTypes);
+        return RegistryClassNames.SequenceEqual(other.RegistryClassNames) && ServiceTypes.SequenceEqual(other.ServiceTypes);
     }
 
     public override bool Equals(object? obj) => Equals(obj as ReferencedRegistrationData);
@@ -343,9 +343,9 @@ internal sealed class ReferencedRegistrationData : IEquatable<ReferencedRegistra
         unchecked
         {
             var hash = 17;
-            foreach (var m in Methods)
+            foreach (var name in RegistryClassNames)
             {
-                hash = hash * 31 + m.GetHashCode();
+                hash = hash * 31 + name.GetHashCode();
             }
 
             foreach (var s in ServiceTypes)

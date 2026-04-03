@@ -42,7 +42,7 @@ public class GeneratorTests
         Assert.Contains(generatedTrees, t => t.Contains("GenerateDecoratRRegistrationsAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRHandlerRegistrationAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRHandlerServiceTypeAttribute"));
-        Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRHandlerRegistry"));
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class GeneratorTests
         var (_, generatedTrees) = RunGenerator(source);
 
         Assert.Equal(5, generatedTrees.Length); // 4 attributes + registrations
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
 
         Assert.Contains("TestCommandHandler", registrations);
         Assert.Contains("TestCommand", registrations);
@@ -91,7 +91,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         Assert.Contains("TestQueryHandler", registrations);
     }
 
@@ -121,7 +121,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         Assert.Contains("Command1Handler", registrations);
         Assert.Contains("Query1Handler", registrations);
     }
@@ -187,7 +187,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         Assert.Contains("InternalHandler", registrations);
     }
 
@@ -205,7 +205,7 @@ public class GeneratorTests
         var (diagnostics, generatedTrees) = RunGenerator(source);
 
         Assert.Contains(diagnostics, d => d.Id == "DCTR001");
-        Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRHandlerRegistry"));
     }
 
     [Fact]
@@ -249,14 +249,14 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source, "My.Test.Assembly");
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         Assert.Contains("namespace My.Test.Assembly;", registrations);
     }
 
-    // ─── Handler-only path: Extension method generation ─────────────────────
+    // ─── Handler-only path: Registry generation ──────────────────────────────
 
     [Fact]
-    public void HandlerOnly_GeneratesExtensionMethod()
+    public void HandlerOnly_GeneratesRegistry()
     {
         var source = """
                      using DecoratR;
@@ -274,14 +274,15 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
-        Assert.Contains("AddDecoratRHandlers_TestAssembly", registrations);
-        Assert.Contains("ServiceDescriptor", registrations);
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
+        Assert.Contains("Handlers", registrations);
         Assert.Contains("TestCommandHandler", registrations);
+        Assert.DoesNotContain("ServiceDescriptor", registrations);
+        Assert.DoesNotContain("IServiceCollection", registrations);
     }
 
     [Fact]
-    public void HandlerOnly_ExtensionMethodHasMarkerAttribute()
+    public void HandlerOnly_RegistryHasNoMarkerAttribute()
     {
         var source = """
                      using DecoratR;
@@ -299,7 +300,7 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         Assert.DoesNotContain("[global::DecoratR.DecoratRRegistrationMethod]", registrations);
     }
 
@@ -322,9 +323,9 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         Assert.Contains("[assembly: global::DecoratR.DecoratRHandlerRegistration(", registrations);
-        Assert.Contains("\"AddDecoratRHandlers_TestAssembly\"", registrations);
+        Assert.Contains("TestAssembly.DecoratRHandlerRegistry", registrations);
     }
 
     [Fact]
@@ -346,14 +347,14 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         Assert.Contains("[assembly: global::DecoratR.DecoratRHandlerServiceType(", registrations);
         Assert.Contains("\"global::TestCommand\"", registrations);
         Assert.Contains("\"string\"", registrations);
     }
 
     [Fact]
-    public void HandlerOnly_InternalHandler_IncludedInExtensionMethod()
+    public void HandlerOnly_InternalHandler_IncludedInRegistry()
     {
         var source = """
                      using DecoratR;
@@ -371,13 +372,12 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         Assert.Contains("InternalHandler", registrations);
-        Assert.Contains("ServiceDescriptor", registrations);
     }
 
     [Fact]
-    public void HandlerOnly_SanitizesAssemblyNameForMethodName()
+    public void HandlerOnly_NamespaceDerivedFromAssemblyName()
     {
         var source = """
                      using DecoratR;
@@ -395,8 +395,9 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(source, "My.Test.Assembly");
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerServiceCollectionExtensions"));
-        Assert.Contains("AddDecoratRHandlers_My_Test_Assembly", registrations);
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
+        Assert.Contains("namespace My.Test.Assembly;", registrations);
+        Assert.Contains("My.Test.Assembly.DecoratRHandlerRegistry", registrations);
     }
 
     // ─── Full path ([GenerateDecoratRRegistrations]) ─────────────────────────
@@ -657,7 +658,7 @@ public class GeneratorTests
             "HandlerLib");
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
-        Assert.Contains("AddDecoratRHandlers_HandlerLib", registrations);
+        Assert.Contains("HandlerLib.DecoratRHandlerRegistry.Handlers", registrations);
         Assert.Contains("// Register handlers from referenced assemblies", registrations);
     }
 
@@ -687,8 +688,8 @@ public class GeneratorTests
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
-        // The composition root should call the registration method, not reference the handler directly
-        Assert.Contains("AddDecoratRHandlers_HandlerLib", registrations);
+        // The composition root iterates the referenced registry, not the handler directly
+        Assert.Contains("HandlerLib.DecoratRHandlerRegistry.Handlers", registrations);
         // Internal handler should NOT appear in composition root generated code
         Assert.DoesNotContain("InternalHandler", registrations);
     }
@@ -769,9 +770,9 @@ public class GeneratorTests
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
-        // Referenced handlers via method call
-        Assert.Contains("AddDecoratRHandlers_HandlerLib", registrations);
-        // Local handlers via direct AddTransient
+        // Referenced handlers via registry iteration
+        Assert.Contains("HandlerLib.DecoratRHandlerRegistry.Handlers", registrations);
+        // Local handlers via direct ServiceDescriptor
         Assert.Contains("LocalHandler", registrations);
         Assert.Contains("// Register local handlers", registrations);
         Assert.Contains("// Register handlers from referenced assemblies", registrations);
