@@ -775,6 +775,306 @@ public class GeneratorTests
         Assert.Contains("// Register handlers from referenced assemblies", registrations);
     }
 
+    // ─── Cross-assembly decorator tests ─────────────────────────────────────
+
+    [Fact]
+    public void TwoStage_DecoratorInHandlerLib_DiscoveredByCompositionRoot()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+
+            [Decorator(Order = 1)]
+            public class AppDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+
+        // Cross-assembly decorator should be applied
+        Assert.Contains("Decorate<", registrations);
+        Assert.Contains("AppDecorator", registrations);
+        Assert.Contains("TestCommand", registrations);
+    }
+
+    [Fact]
+    public void TwoStage_DecoratorInHandlerLib_EmitsDecoratorRegistrationAttribute()
+    {
+        var handlerSource = """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+
+            [Decorator(Order = 5)]
+            public class AppDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """;
+
+        var (_, generatedTrees) = RunGenerator(handlerSource, "HandlerLib");
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
+        Assert.Contains("[assembly: global::DecoratR.DecoratRDecoratorRegistration(", registrations);
+        Assert.Contains("AppDecorator", registrations);
+        Assert.Contains(", 5)]", registrations);
+    }
+
+    [Fact]
+    public void TwoStage_MixedLocalAndReferencedDecorators_GlobalOrdering()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+
+            [Decorator(Order = 1)]
+            public class AppDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+            [Decorator(Order = 2)]
+            public class LocalDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public LocalDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+
+        // Both decorators should be present
+        Assert.Contains("AppDecorator", registrations);
+        Assert.Contains("LocalDecorator", registrations);
+
+        // LocalDecorator (Order=2) should appear before AppDecorator (Order=1) in Decorate section
+        // because higher order is applied first (innermost)
+        var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+        var localIdx = decorateSection.IndexOf("LocalDecorator", StringComparison.Ordinal);
+        var appIdx = decorateSection.IndexOf("AppDecorator", StringComparison.Ordinal);
+        Assert.True(localIdx < appIdx, "LocalDecorator (Order=2) should be applied first (closer to handler)");
+    }
+
+    [Fact]
+    public void TwoStage_ReferencedDecoratorsAppliedToLocalHandlers()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record RemoteCommand(string Name) : IRequest;
+
+            public sealed class RemoteHandler : IRequestHandler<RemoteCommand, string>
+            {
+                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Remote");
+            }
+
+            [Decorator(Order = 1)]
+            public class AppDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+            public sealed record LocalCommand(string Name) : IRequest;
+
+            public sealed class LocalHandler : IRequestHandler<LocalCommand, string>
+            {
+                public ValueTask<string> HandleAsync(LocalCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Local");
+            }
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+
+        // Referenced decorator should be applied to BOTH local and remote handlers
+        Assert.Contains("AppDecorator", registrations);
+
+        var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+        // AppDecorator should be applied to both LocalCommand and RemoteCommand
+        Assert.Contains("LocalCommand", decorateSection);
+        Assert.Contains("RemoteCommand", decorateSection);
+    }
+
+    [Fact]
+    public void TwoStage_DecoratorsDiscoveredDiagnostic_IncludesReferencedCount()
+    {
+        var (diagnostics, _) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+
+            [Decorator(Order = 1)]
+            public class AppDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+            [Decorator(Order = 2)]
+            public class LocalDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public LocalDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """);
+
+        // Should report total decorator count (1 local + 1 referenced = 2)
+        var decoratorDiag = diagnostics.FirstOrDefault(d => d.Id == "DCTR003");
+        Assert.NotNull(decoratorDiag);
+        Assert.Contains("2", decoratorDiag.GetMessage());
+    }
+
+    [Fact]
+    public void TwoStage_OnlyReferencedDecorators_NoLocalDecorators()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+
+            [Decorator(Order = 1)]
+            public class AppDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+
+        // Only referenced decorator, applied correctly
+        Assert.Contains("Decorate<", registrations);
+        Assert.Contains("AppDecorator", registrations);
+    }
+
+    [Fact]
+    public void TwoStage_HandlerLib_NoDecorators_NoDecoratorAttributes()
+    {
+        var handlerSource = """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+            """;
+
+        var (_, generatedTrees) = RunGenerator(handlerSource, "HandlerLib");
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
+        // No decorators, so no decorator registration attributes
+        Assert.DoesNotContain("[assembly: global::DecoratR.DecoratRDecoratorRegistration(", registrations);
+    }
+
     // ─── Helper methods ─────────────────────────────────────────────────────
 
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] GeneratedSources) RunGenerator(
