@@ -902,12 +902,12 @@ public class GeneratorTests
         Assert.Contains("AppDecorator", registrations);
         Assert.Contains("LocalDecorator", registrations);
 
-        // LocalDecorator (Order=2) should appear before AppDecorator (Order=1) in Decorate section
-        // because higher order is applied first (innermost)
+        // LocalDecorator (Order=2, innermost) should appear before AppDecorator (Order=1, outermost)
+        // in the Decorate calls because innermost decorators are registered first
         var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         var localIdx = decorateSection.IndexOf("LocalDecorator", StringComparison.Ordinal);
         var appIdx = decorateSection.IndexOf("AppDecorator", StringComparison.Ordinal);
-        Assert.True(localIdx < appIdx, "LocalDecorator (Order=2) should be applied first (closer to handler)");
+        Assert.True(localIdx < appIdx, "LocalDecorator (Order=2, innermost) should be registered before AppDecorator (Order=1, outermost)");
     }
 
     [Fact]
