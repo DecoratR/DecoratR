@@ -7,7 +7,7 @@ internal readonly struct ReferencedRegistrationData : IEquatable<ReferencedRegis
     public ReferencedRegistrationData(
         ImmutableArray<string> registryClassNames,
         ImmutableArray<HandlerMetadata> serviceTypes,
-        ImmutableArray<DecoratorMetadata> decorators)
+        ImmutableArray<ReferencedDecoratorInfo> decorators)
     {
         RegistryClassNames = registryClassNames;
         ServiceTypes = serviceTypes;
@@ -18,7 +18,7 @@ internal readonly struct ReferencedRegistrationData : IEquatable<ReferencedRegis
 
     public ImmutableArray<HandlerMetadata> ServiceTypes { get; }
 
-    public ImmutableArray<DecoratorMetadata> Decorators { get; }
+    public ImmutableArray<ReferencedDecoratorInfo> Decorators { get; }
 
     public bool Equals(ReferencedRegistrationData other)
     {

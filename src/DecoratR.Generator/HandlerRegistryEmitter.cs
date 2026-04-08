@@ -4,7 +4,7 @@ namespace DecoratR.Generator;
 
 internal static class HandlerRegistryEmitter
 {
-    internal static string Generate(string assemblyName, IReadOnlyList<HandlerMetadata> handlers, IReadOnlyList<DecoratorMetadata> decorators)
+    internal static string Generate(string assemblyName, IReadOnlyList<HandlerMetadata> handlers)
     {
         var registryClassName = string.Concat(assemblyName, ".DecoratRHandlerRegistry");
         var sb = new StringBuilder(300 + handlers.Count * 500);
@@ -25,15 +25,6 @@ internal static class HandlerRegistryEmitter
                 .Append("\", \"")
                 .Append(handler.ResponseFullyQualifiedName)
                 .AppendLine("\")]");
-        }
-
-        foreach (var decorator in decorators)
-        {
-            sb.Append("[assembly: global::DecoratR.DecoratRDecoratorRegistration(\"")
-                .Append(decorator.DecoratorFullyQualifiedName)
-                .Append("\", ")
-                .Append(decorator.Order)
-                .AppendLine(")]");
         }
 
         sb.AppendLine();

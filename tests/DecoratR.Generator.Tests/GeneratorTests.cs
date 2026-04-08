@@ -812,9 +812,8 @@ public class GeneratorTests
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
-        // Cross-assembly decorator should be applied
-        Assert.Contains("Decorate<", registrations);
-        Assert.Contains("AppDecorator", registrations);
+        // Cross-assembly decorator should be applied via generated apply method
+        Assert.Contains("ApplyAppDecorator", registrations);
         Assert.Contains("TestCommand", registrations);
     }
 
@@ -847,9 +846,9 @@ public class GeneratorTests
 
         var (_, generatedTrees) = RunGenerator(handlerSource, "HandlerLib");
 
-        var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRDecoratorRegistry"));
         Assert.Contains("[assembly: global::DecoratR.DecoratRDecoratorRegistration(", registrations);
-        Assert.Contains("AppDecorator", registrations);
+        Assert.Contains("ApplyAppDecorator", registrations);
         Assert.Contains(", 5)]", registrations);
     }
 
@@ -899,14 +898,16 @@ public class GeneratorTests
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
         // Both decorators should be present
-        Assert.Contains("AppDecorator", registrations);
+        // Referenced decorator via apply method call
+        Assert.Contains("ApplyAppDecorator", registrations);
+        // Local decorator via direct Decorate<> call
         Assert.Contains("LocalDecorator", registrations);
 
         // LocalDecorator (Order=2, innermost) should appear before AppDecorator (Order=1, outermost)
         // in the Decorate calls because innermost decorators are registered first
         var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         var localIdx = decorateSection.IndexOf("LocalDecorator", StringComparison.Ordinal);
-        var appIdx = decorateSection.IndexOf("AppDecorator", StringComparison.Ordinal);
+        var appIdx = decorateSection.IndexOf("ApplyAppDecorator", StringComparison.Ordinal);
         Assert.True(localIdx < appIdx, "LocalDecorator (Order=2, innermost) should be registered before AppDecorator (Order=1, outermost)");
     }
 
@@ -953,11 +954,11 @@ public class GeneratorTests
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
-        // Referenced decorator should be applied to BOTH local and remote handlers
-        Assert.Contains("AppDecorator", registrations);
+        // Referenced decorator should be applied to BOTH local and remote handlers via apply method
+        Assert.Contains("ApplyAppDecorator", registrations);
 
         var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
-        // AppDecorator should be applied to both LocalCommand and RemoteCommand
+        // ApplyAppDecorator should be called with both LocalCommand and RemoteCommand type args
         Assert.Contains("LocalCommand", decorateSection);
         Assert.Contains("RemoteCommand", decorateSection);
     }
@@ -1046,9 +1047,8 @@ public class GeneratorTests
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
-        // Only referenced decorator, applied correctly
-        Assert.Contains("Decorate<", registrations);
-        Assert.Contains("AppDecorator", registrations);
+        // Only referenced decorator, applied via generated apply method
+        Assert.Contains("ApplyAppDecorator", registrations);
     }
 
     [Fact]
@@ -1073,6 +1073,91 @@ public class GeneratorTests
         var registrations = generatedTrees.First(t => t.Contains("DecoratRHandlerRegistry"));
         // No decorators, so no decorator registration attributes
         Assert.DoesNotContain("[assembly: global::DecoratR.DecoratRDecoratorRegistration(", registrations);
+        // No decorator registry class should be generated
+        Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRDecoratorRegistry"));
+    }
+
+    [Fact]
+    public void TwoStage_InternalDecorator_DiscoveredViaApplyMethod()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+
+            [Decorator(Order = 1)]
+            internal class InternalDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public InternalDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+
+        // Internal decorator should be applied via generated apply method (not direct type reference)
+        Assert.Contains("ApplyInternalDecorator", registrations);
+        // The composition root should NOT reference the internal decorator type directly in Decorate<> calls
+        Assert.DoesNotContain("global::InternalDecorator<", registrations);
+    }
+
+    [Fact]
+    public void TwoStage_DecoratorRegistryHasApplyMethodAndDecorateServiceCore()
+    {
+        var handlerSource = """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateHandlerRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+
+            [Decorator(Order = 1)]
+            public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """;
+
+        var (_, generatedTrees) = RunGenerator(handlerSource, "HandlerLib");
+
+        var decoratorRegistry = generatedTrees.First(t => t.Contains("DecoratRDecoratorRegistry"));
+
+        // Should have the apply method
+        Assert.Contains("public static void ApplyLoggingDecorator<TRequest, TResponse>", decoratorRegistry);
+        // Should have the generic IServiceCollection parameter
+        Assert.Contains("IServiceCollection services", decoratorRegistry);
+        // Should have the private core method with DynamicallyAccessedMembers
+        Assert.Contains("private static void DecorateService<TRequest, TResponse,", decoratorRegistry);
+        Assert.Contains("DynamicallyAccessedMembers", decoratorRegistry);
+        // Should reference the decorator type internally
+        Assert.Contains("LoggingDecorator<TRequest, TResponse>", decoratorRegistry);
     }
 
     // ─── Helper methods ─────────────────────────────────────────────────────

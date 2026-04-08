@@ -13,7 +13,7 @@ internal static class ReferencedAssemblyScanner
     {
         var registryClassNames = ImmutableArray.CreateBuilder<string>();
         var serviceTypes = ImmutableArray.CreateBuilder<HandlerMetadata>();
-        var decorators = ImmutableArray.CreateBuilder<DecoratorMetadata>();
+        var decorators = ImmutableArray.CreateBuilder<ReferencedDecoratorInfo>();
 
         foreach (var referencedAssembly in compilation.SourceModule.ReferencedAssemblySymbols)
         {
@@ -31,9 +31,9 @@ internal static class ReferencedAssemblyScanner
                 {
                     serviceTypes.Add(new HandlerMetadata(string.Empty, requestType, responseType));
                 }
-                else if (attrName == DecoratorRegistrationAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string decoratorTypeName && attr.ConstructorArguments[1].Value is int order)
+                else if (attrName == DecoratorRegistrationAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string applyMethodName && attr.ConstructorArguments[1].Value is int order)
                 {
-                    decorators.Add(new DecoratorMetadata(decoratorTypeName, order));
+                    decorators.Add(new ReferencedDecoratorInfo(applyMethodName, order));
                 }
             }
         }

@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace DecoratR.Sample.Application;
 
 [Decorator(Order = 1)]
-public sealed class FooDecorator<TRequest, TResponse>(
+internal sealed class FooDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner)
     : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest

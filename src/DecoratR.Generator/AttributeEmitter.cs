@@ -89,19 +89,21 @@ internal static class AttributeEmitter
         namespace DecoratR;
 
         /// <summary>
-        /// Assembly-level attribute that encodes a decorator's fully qualified type name and order.
-        /// Used by the composition root generator to discover decorators from referenced assemblies.
+        /// Assembly-level attribute that records the fully qualified name of a generated
+        /// decorator apply method and the decorator's order.
+        /// The composition root calls these methods to apply cross-assembly decorators
+        /// without directly referencing the (possibly internal) decorator type.
         /// </summary>
         [global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]
         internal sealed class DecoratRDecoratorRegistrationAttribute : global::System.Attribute
         {
-            public DecoratRDecoratorRegistrationAttribute(string decoratorTypeName, int order)
+            public DecoratRDecoratorRegistrationAttribute(string applyMethodName, int order)
             {
-                DecoratorTypeName = decoratorTypeName;
+                ApplyMethodName = applyMethodName;
                 Order = order;
             }
 
-            public string DecoratorTypeName { get; }
+            public string ApplyMethodName { get; }
             public int Order { get; }
         }
         """;

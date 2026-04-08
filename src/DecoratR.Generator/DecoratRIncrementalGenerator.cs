@@ -154,7 +154,16 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 
         var sorted = handlers.OrderBy(h => h.HandlerFullyQualifiedName).ToList();
         spc.AddSource("DecoratRHandlerRegistrations.g.cs",
-            HandlerRegistryEmitter.Generate(assemblyName, sorted, decorators));
+            HandlerRegistryEmitter.Generate(assemblyName, sorted));
+
+        if (decorators.Count > 0)
+        {
+            spc.ReportDiagnostic(Diagnostic.Create(
+                Diagnostics.DecoratorsDiscovered, Location.None, decorators.Count, assemblyName));
+
+            spc.AddSource("DecoratRDecoratorRegistrations.g.cs",
+                DecoratorRegistryEmitter.Generate(assemblyName, decorators));
+        }
     }
 
     private static void EmitFullRegistrations(
