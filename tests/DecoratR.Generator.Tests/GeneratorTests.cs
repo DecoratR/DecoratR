@@ -1158,6 +1158,8 @@ public class GeneratorTests
         Assert.Contains("DynamicallyAccessedMembers", decoratorRegistry);
         // Should reference the decorator type internally
         Assert.Contains("LoggingDecorator<TRequest, TResponse>", decoratorRegistry);
+        // Apply method should call DecorateService with the correct decorator type
+        Assert.Contains("DecorateService<TRequest, TResponse, global::LoggingDecorator<TRequest, TResponse>>(services)", decoratorRegistry);
     }
 
     // ─── Helper methods ─────────────────────────────────────────────────────

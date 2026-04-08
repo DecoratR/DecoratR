@@ -119,11 +119,11 @@ internal static class DecoratorRegistryEmitter
     internal static string GetApplyMethodName(DecoratorMetadata decorator)
     {
         var name = StripGlobalPrefix(decorator.DecoratorFullyQualifiedName);
-        var dotIndex = name.LastIndexOf('.');
-        if (dotIndex >= 0)
-        {
-            name = name.Substring(dotIndex + 1);
-        }
+
+        // Replace dots with underscores to preserve namespace uniqueness
+        // (e.g. App.LoggingDecorator and Infra.LoggingDecorator produce
+        //  ApplyApp_LoggingDecorator and ApplyInfra_LoggingDecorator)
+        name = name.Replace('.', '_');
 
         return string.Concat("Apply", name);
     }
