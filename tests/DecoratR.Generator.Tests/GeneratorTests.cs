@@ -435,7 +435,7 @@ public class GeneratorTests
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
         Assert.Contains("TestCommandHandler", registrations);
         Assert.Contains("LoggingDecorator", registrations);
-        Assert.Contains("Decorate<", registrations);
+        Assert.Contains("DecorateService<", registrations);
     }
 
     [Fact]
@@ -469,12 +469,14 @@ public class GeneratorTests
 
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
-        // The decorator IS referenced in Decorate() calls
-        Assert.Contains("Decorate<", registrations);
+        // The decorator IS referenced in DecorateService() calls
+        Assert.Contains("DecorateService<", registrations);
         Assert.Contains("LoggingDecorator", registrations);
         // The handler IS registered via ServiceDescriptor, not the decorator
         Assert.Contains("TestCommandHandler", registrations);
-        Assert.DoesNotContain("ServiceDescriptor", registrations.Split("// Apply decorators")[1]);
+        // Only check the decorator-call section (up to "return services;"), not the private helper methods
+        var applySection = registrations.Split("// Apply decorators")[1].Split("return services;")[0];
+        Assert.DoesNotContain("ServiceDescriptor", applySection);
     }
 
     [Fact]
@@ -729,7 +731,7 @@ public class GeneratorTests
         var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
 
         // Decorators should be applied using service types from referenced assembly
-        Assert.Contains("Decorate<", registrations);
+        Assert.Contains("DecorateService<", registrations);
         Assert.Contains("LoggingDecorator", registrations);
         Assert.Contains("TestCommand", registrations);
     }
@@ -900,11 +902,11 @@ public class GeneratorTests
         // Both decorators should be present
         // Referenced decorator via apply method call
         Assert.Contains("ApplyAppDecorator", registrations);
-        // Local decorator via direct Decorate<> call
+        // Local decorator via generated DecorateService<> call
         Assert.Contains("LocalDecorator", registrations);
 
         // LocalDecorator (Order=2, innermost) should appear before AppDecorator (Order=1, outermost)
-        // in the Decorate calls because innermost decorators are registered first
+        // in the DecorateService calls because innermost decorators are registered first
         var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         var localIdx = decorateSection.IndexOf("LocalDecorator", StringComparison.Ordinal);
         var appIdx = decorateSection.IndexOf("ApplyAppDecorator", StringComparison.Ordinal);
@@ -1114,7 +1116,7 @@ public class GeneratorTests
 
         // Internal decorator should be applied via generated apply method (not direct type reference)
         Assert.Contains("ApplyInternalDecorator", registrations);
-        // The composition root should NOT reference the internal decorator type directly in Decorate<> calls
+        // The composition root should NOT reference the internal decorator type directly in DecorateService<> calls
         Assert.DoesNotContain("global::InternalDecorator<", registrations);
     }
 
