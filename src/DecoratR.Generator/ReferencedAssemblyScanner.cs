@@ -7,11 +7,13 @@ internal static class ReferencedAssemblyScanner
 {
     private const string HandlerRegistrationAttributeName = "DecoratRHandlerRegistrationAttribute";
     private const string HandlerServiceTypeAttributeName = "DecoratRHandlerServiceTypeAttribute";
+    private const string DecoratorRegistrationAttributeName = "DecoratRDecoratorRegistrationAttribute";
 
     public static ReferencedRegistrationData Scan(Compilation compilation, CancellationToken cancellationToken)
     {
         var registryClassNames = ImmutableArray.CreateBuilder<string>();
         var serviceTypes = ImmutableArray.CreateBuilder<HandlerMetadata>();
+        var decorators = ImmutableArray.CreateBuilder<ReferencedDecoratorInfo>();
 
         foreach (var referencedAssembly in compilation.SourceModule.ReferencedAssemblySymbols)
         {
@@ -29,11 +31,16 @@ internal static class ReferencedAssemblyScanner
                 {
                     serviceTypes.Add(new HandlerMetadata(string.Empty, requestType, responseType));
                 }
+                else if (attrName == DecoratorRegistrationAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string applyMethodName && attr.ConstructorArguments[1].Value is int order)
+                {
+                    decorators.Add(new ReferencedDecoratorInfo(applyMethodName, order));
+                }
             }
         }
 
         return new ReferencedRegistrationData(
             registryClassNames.ToImmutable(),
-            serviceTypes.ToImmutable());
+            serviceTypes.ToImmutable(),
+            decorators.ToImmutable());
     }
 }
