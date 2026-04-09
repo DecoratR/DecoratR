@@ -224,4 +224,4 @@ DecoratR is designed to work with Native AOT.
 
 ## Requirements
 
-- .NET 10+
+- .NET 8+

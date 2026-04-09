@@ -135,5 +135,5 @@ internal static class DecoratorRegistryEmitter
     }
 
     private static string StripGlobalPrefix(string typeName) =>
-        typeName.StartsWith("global::") ? typeName.Substring("global::".Length) : typeName;
+        typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase) ? typeName.Substring("global::".Length) : typeName;
 }

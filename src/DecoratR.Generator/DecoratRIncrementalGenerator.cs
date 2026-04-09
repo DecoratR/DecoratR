@@ -140,7 +140,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         SourceProductionContext spc,
         string assemblyName,
         ImmutableArray<HandlerMetadata> handlers,
-        IReadOnlyList<DecoratorMetadata> decorators)
+        DecoratorMetadata[] decorators)
     {
         if (handlers.Length == 0)
         {
@@ -156,10 +156,10 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         spc.AddSource("DecoratRHandlerRegistrations.g.cs",
             HandlerRegistryEmitter.Generate(assemblyName, sorted));
 
-        if (decorators.Count > 0)
+        if (decorators.Length > 0)
         {
             spc.ReportDiagnostic(Diagnostic.Create(
-                Diagnostics.DecoratorsDiscovered, Location.None, decorators.Count, assemblyName));
+                Diagnostics.DecoratorsDiscovered, Location.None, decorators.Length, assemblyName));
 
             spc.AddSource("DecoratRDecoratorRegistrations.g.cs",
                 DecoratorRegistryEmitter.Generate(assemblyName, decorators));
@@ -169,11 +169,11 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     private static void EmitFullRegistrations(
         SourceProductionContext spc,
         string assemblyName,
-        IReadOnlyList<HandlerMetadata> localHandlers,
+        HandlerMetadata[] localHandlers,
         ReferencedRegistrationData referenced,
-        IReadOnlyList<DecoratorMetadata> localDecorators)
+        DecoratorMetadata[] localDecorators)
     {
-        var totalHandlerCount = localHandlers.Count + referenced.ServiceTypes.Length;
+        var totalHandlerCount = localHandlers.Length + referenced.ServiceTypes.Length;
 
         if (totalHandlerCount == 0)
         {
@@ -186,7 +186,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
                 Diagnostics.HandlersDiscovered, Location.None, totalHandlerCount, assemblyName));
         }
 
-        var totalDecoratorCount = localDecorators.Count + referenced.Decorators.Length;
+        var totalDecoratorCount = localDecorators.Length + referenced.Decorators.Length;
         if (totalDecoratorCount > 0)
         {
             spc.ReportDiagnostic(Diagnostic.Create(
