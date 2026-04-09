@@ -4,7 +4,7 @@
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
-  
+
   <PropertyGroup>
     <Title>DecoratR Abstractions</Title>
     <Description>Core DecoratR interfaces and attributes for defining requests, handlers, and decorators in .NET applications.</Description>
