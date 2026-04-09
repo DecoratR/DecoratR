@@ -13,4 +13,10 @@
   <Folder Name="/tests/">
     <Project Path="tests/DecoratR.Generator.Tests/DecoratR.Generator.Tests.csproj" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/shared/Examples.Shared.csproj" />
+    <Project Path="examples/simple-api/Examples.SimpleApi.csproj" />
+    <Project Path="examples/clean-architecture/src/Examples.CleanArchitecture.Application/Examples.CleanArchitecture.Application.csproj" />
+    <Project Path="examples/clean-architecture/src/Examples.CleanArchitecture.Api/Examples.CleanArchitecture.Api.csproj" />
+  </Folder>
 </Solution>

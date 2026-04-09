@@ -225,3 +225,14 @@ DecoratR is designed to work with Native AOT.
 ## Requirements
 
 - .NET 8+
+
+## Examples
+
+Working examples are available in the [`examples/`](examples/) directory:
+
+| Example | Description |
+|---------|-------------|
+| [**Simple API**](examples/simple-api/) | A single-project minimal API that uses DecoratR with a logging decorator. The simplest way to get started. |
+| [**Clean Architecture**](examples/clean-architecture/) | A multi-project CQRS setup with `IQuery`/`ICommand`/`IQueryHandler`/`ICommandHandler` abstractions layered on top of DecoratR, plus exception handling and performance logging decorators. |
+
+Both examples use a [shared project](examples/shared/) containing an in-memory Todo repository seeded with fake data via [Bogus](https://github.com/bchavez/Bogus).
