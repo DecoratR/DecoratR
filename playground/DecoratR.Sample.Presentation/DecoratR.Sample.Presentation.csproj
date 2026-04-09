@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.13.20" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DecoratR\DecoratR.csproj" />
+    <ProjectReference Include="..\DecoratR.Sample.Application\DecoratR.Sample.Application.csproj" />
+    <ProjectReference Include="..\DecoratR.Sample.Infrastructure\DecoratR.Sample.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\DecoratR.Generator\DecoratR.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
