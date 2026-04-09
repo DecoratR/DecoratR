@@ -1,13 +1,18 @@
 using DecoratR;
 using Examples.Shared;
 using Examples.SimpleApi;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDecoratR();
 builder.Services.AddSharedInfrastructure();
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+app.MapOpenApi();
+app.MapScalarApiReference();
 
 app.MapGet("/todos", async (IRequestHandler<GetTodosQuery, IReadOnlyList<Todo>> handler, CancellationToken ct) =>
 {

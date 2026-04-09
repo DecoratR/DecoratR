@@ -14,14 +14,14 @@ internal sealed class LoggingDecorator<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
     {
-        var requestName = typeof(TRequest).Name;
-        logger.LogInformation("Handling {Request}: {Payload}", requestName, request);
-
-        var stopwatch = Stopwatch.StartNew();
+        var timestamp = Stopwatch.GetTimestamp();
         var response = await inner.HandleAsync(request, cancellationToken);
-        stopwatch.Stop();
+        var time = Stopwatch.GetElapsedTime(timestamp);
 
-        logger.LogInformation("Handled {Request} in {ElapsedMs}ms", requestName, stopwatch.ElapsedMilliseconds);
+        logger.LogInformation(
+            "Handled {Request} in {ElapsedMs}ms",
+            typeof(TRequest).Name,
+            time.TotalMilliseconds);
         return response;
     }
 }

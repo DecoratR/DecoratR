@@ -4,7 +4,7 @@ using DecoratR;
 namespace Examples.CleanArchitecture.Api.Decorators;
 
 [Decorator(Order = 1)]
-public sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
+internal sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
     ILogger<ExceptionHandlingDecorator<TRequest, TResponse>> logger)
     : IRequestHandler<TRequest, TResponse>
