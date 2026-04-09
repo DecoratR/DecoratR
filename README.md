@@ -1,6 +1,6 @@
 # DecoratR
 
-A compile-time [Decorator Pattern](https://en.wikipedia.org/wiki/Decorator_pattern) for .NET. A Roslyn source generator discovers your request handlers and decorators, then wires them into the DI container automatically. No mediator, no runtime reflection, no pipelines — just decorators applied at the right order.
+A compile-time [Decorator Pattern](https://en.wikipedia.org/wiki/Decorator_pattern) for .NET. A Roslyn source generator discovers your request handlers and decorators, then wires them into the DI container automatically. No mediator, no runtime reflection, no pipelines.
 
 ## How It Works
 
