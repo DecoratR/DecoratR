@@ -6,7 +6,7 @@ A compile-time [Decorator Pattern](https://en.wikipedia.org/wiki/Decorator_patte
 
 You define request handlers (`IRequestHandler<TRequest, TResponse>`) and decorators. The source generator scans your assemblies at compile time, finds all handlers and decorators, and emits an `AddDecoratR()` extension method that registers everything in `IServiceCollection`.
 
-When you resolve a handler from the container, you get the full decorated chain. Decorators are ordered by the `Order` property on the `[Decorator]` attribute — **lower values run first (outermost)**:
+When you resolve a handler from the container, you get the full decorated chain. Decorators are ordered by the `Order` property on the `[Decorator]` attribute. **Lower values run first (outermost)**:
 
 ```
 Request
@@ -25,10 +25,10 @@ Response
 | **DecoratR.Generator** | The Roslyn source generator. Reference this as an analyzer in projects that need code generation. |
 
 ```bash
-# Library / application layer — abstractions only
+# Library / application layer (abstractions only)
 dotnet add package DecoratR.Abstractions
 
-# Host project — also needs the generator
+# Host project (also needs the generator)
 dotnet add package DecoratR.Generator
 ```
 
@@ -61,7 +61,7 @@ internal sealed class GreetCommandHandler(IGreetingRepository repository)
 }
 ```
 
-Handlers can be `internal` or `public`. They can inject any dependencies through the constructor. The generator discovers them automatically — no manual registration needed.
+Handlers can be `internal` or `public`. They can inject any dependencies through the constructor. The generator discovers them automatically, with no manual registration needed.
 
 ### 3. Write decorators
 
@@ -120,7 +120,7 @@ public sealed class RequestLoggingDecorator<TRequest, TResponse>(
 
 The generator supports **two assembly-level attributes** that control what gets generated:
 
-#### `[GenerateHandlerRegistrations]` — for library projects
+#### `[GenerateHandlerRegistrations]` (for library projects)
 
 Use this in projects that define handlers and/or decorators but are **not** the composition root. The generator emits metadata that the composition root can discover at compile time.
 
@@ -135,7 +135,7 @@ This generates:
 - A `DecoratRHandlerRegistry` class listing all discovered handlers
 - Assembly-level attributes so the composition root can find them across assembly boundaries
 
-#### `[GenerateDecoratRRegistrations]` — for the composition root
+#### `[GenerateDecoratRRegistrations]` (for the composition root)
 
 Use this in the host/startup project (e.g., your ASP.NET Core project). The generator scans the current assembly **and** all referenced assemblies for handlers and decorators, then emits the `AddDecoratR()` extension method.
 
@@ -201,10 +201,10 @@ Decorators wrap handlers from the outside in. **Lower `Order` values execute fir
 
 | Order | Decorator | Position |
 |-------|-----------|----------|
-| 1 | `ExceptionHandlingDecorator` | Outermost — catches everything |
+| 1 | `ExceptionHandlingDecorator` | Outermost. Catches everything. |
 | 2 | `PerformanceLoggingDecorator` | Measures time of inner chain |
 | 3 | `RequestLoggingDecorator` | Logs request/response |
-| 4 | `ValidationDecorator` | Innermost — validates before handler |
+| 4 | `ValidationDecorator` | Innermost. Validates before handler. |
 
 When two decorators share the same `Order`, they are sorted alphabetically by name.
 
