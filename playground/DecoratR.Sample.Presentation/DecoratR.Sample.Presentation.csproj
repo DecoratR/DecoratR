@@ -11,7 +11,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\DecoratR\DecoratR.csproj" />
     <ProjectReference Include="..\DecoratR.Sample.Application\DecoratR.Sample.Application.csproj" />
     <ProjectReference Include="..\DecoratR.Sample.Infrastructure\DecoratR.Sample.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\DecoratR.Generator\DecoratR.Generator.csproj"

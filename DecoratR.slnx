@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/DecoratR.Abstractions/DecoratR.Abstractions.csproj" />
-    <Project Path="src/DecoratR/DecoratR.csproj" />
     <Project Path="src/DecoratR.Generator/DecoratR.Generator.csproj" />
   </Folder>
   <Folder Name="/playground/">
@@ -11,7 +10,6 @@
     <Project Path="playground/DecoratR.Sample.Presentation/DecoratR.Sample.Presentation.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/DecoratR.Tests/DecoratR.Tests.csproj" />
     <Project Path="tests/DecoratR.Generator.Tests/DecoratR.Generator.Tests.csproj" />
   </Folder>
 </Solution>

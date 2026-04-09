@@ -1,12 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Title>DecoratR Abstractions</Title>
+    <Description>Core DecoratR interfaces and attributes for defining requests, handlers, and decorators in .NET applications.</Description>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="DecoratR" />
-    <InternalsVisibleTo Include="DecoratR.Tests" />
-  </ItemGroup>
 
 </Project>
