@@ -47,6 +47,34 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void GeneratedUserFacingAttributes_ContainHelpfulXmlComments()
+    {
+        var source = """
+                     using DecoratR;
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var handlerAttribute = generatedTrees.First(t => t.Contains("GenerateHandlerRegistrationsAttribute"));
+        Assert.Contains("Generates handler discovery metadata for the current assembly.", handlerAttribute);
+        Assert.Contains("class library that defines request handlers or decorators", handlerAttribute);
+        Assert.Contains("GenerateDecoratRRegistrationsAttribute", handlerAttribute);
+
+        var fullAttribute = generatedTrees.First(t => t.Contains("class GenerateDecoratRRegistrationsAttribute"));
+        Assert.Contains("Generates the <c>AddDecoratR()</c> registration entry point for the current composition root.", fullAttribute);
+        Assert.Contains("Apply this to the host or startup assembly.", fullAttribute);
+        Assert.Contains("registers handlers and applies decorators in pipeline order.", fullAttribute);
+    }
+
+    [Fact]
     public void WithAttribute_CommandHandler_GeneratesRegistration()
     {
         var source = """

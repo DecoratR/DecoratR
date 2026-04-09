@@ -13,6 +13,15 @@ internal static class AttributeEmitter
 
         namespace DecoratR;
 
+        /// <summary>
+        /// Generates handler discovery metadata for the current assembly.
+        /// Apply this to a class library that defines request handlers or decorators but does not own
+        /// the final <c>IServiceCollection</c> registration call.
+        /// </summary>
+        /// <remarks>
+        /// DecoratR emits a handler registry plus assembly-level metadata that a composition root marked
+        /// with <see cref="GenerateDecoratRRegistrationsAttribute"/> can consume across assembly boundaries.
+        /// </remarks>
         [global::System.AttributeUsage(global::System.AttributeTargets.Assembly)]
         internal sealed class GenerateHandlerRegistrationsAttribute : global::System.Attribute
         {
@@ -31,10 +40,13 @@ internal static class AttributeEmitter
         namespace DecoratR;
 
         /// <summary>
-        /// Triggers the DecoratR source generator to discover all handlers and decorators in the compilation
-        /// and emit an <c>AddDecoratR()</c> extension method on <c>IServiceCollection</c>.
-        /// Place this attribute in the composition root assembly (e.g. the web API project).
+        /// Generates the <c>AddDecoratR()</c> registration entry point for the current composition root.
         /// </summary>
+        /// <remarks>
+        /// Apply this to the host or startup assembly. DecoratR scans the current compilation and referenced
+        /// assemblies for handler metadata, then emits an <c>IServiceCollection</c> extension method that
+        /// registers handlers and applies decorators in pipeline order.
+        /// </remarks>
         [global::System.AttributeUsage(global::System.AttributeTargets.Assembly)]
         internal sealed class GenerateDecoratRRegistrationsAttribute : global::System.Attribute
         {
