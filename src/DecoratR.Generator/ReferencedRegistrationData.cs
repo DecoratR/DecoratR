@@ -2,23 +2,17 @@ using System.Collections.Immutable;
 
 namespace DecoratR.Generator;
 
-internal readonly struct ReferencedRegistrationData : IEquatable<ReferencedRegistrationData>
+internal readonly struct ReferencedRegistrationData(
+    ImmutableArray<string> registryClassNames,
+    ImmutableArray<HandlerMetadata> serviceTypes,
+    ImmutableArray<ReferencedDecoratorInfo> decorators)
+    : IEquatable<ReferencedRegistrationData>
 {
-    public ReferencedRegistrationData(
-        ImmutableArray<string> registryClassNames,
-        ImmutableArray<HandlerMetadata> serviceTypes,
-        ImmutableArray<ReferencedDecoratorInfo> decorators)
-    {
-        RegistryClassNames = registryClassNames;
-        ServiceTypes = serviceTypes;
-        Decorators = decorators;
-    }
+    public ImmutableArray<string> RegistryClassNames { get; } = registryClassNames;
 
-    public ImmutableArray<string> RegistryClassNames { get; }
+    public ImmutableArray<HandlerMetadata> ServiceTypes { get; } = serviceTypes;
 
-    public ImmutableArray<HandlerMetadata> ServiceTypes { get; }
-
-    public ImmutableArray<ReferencedDecoratorInfo> Decorators { get; }
+    public ImmutableArray<ReferencedDecoratorInfo> Decorators { get; } = decorators;
 
     public bool Equals(ReferencedRegistrationData other)
     {

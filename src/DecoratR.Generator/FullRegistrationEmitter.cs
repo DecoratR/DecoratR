@@ -179,14 +179,14 @@ internal static class FullRegistrationEmitter
                     sb.Append("        DecorateService<")
                         .Append(requestType).Append(", ")
                         .Append(responseType).Append(", ")
-                        .Append(name).Append("<").Append(requestType).Append(", ").Append(responseType)
+                        .Append(name).Append('<').Append(requestType).Append(", ").Append(responseType)
                         .AppendLine(">>(services);");
                 }
                 else
                 {
                     // Referenced decorator: call the generated apply method
                     sb.Append("        global::").Append(name)
-                        .Append("<").Append(requestType).Append(", ").Append(responseType)
+                        .Append('<').Append(requestType).Append(", ").Append(responseType)
                         .AppendLine(">(services);");
                 }
             }

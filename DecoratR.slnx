@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <File Path="src/Directory.Build.props" />
     <Project Path="src/DecoratR.Abstractions/DecoratR.Abstractions.csproj" />
     <Project Path="src/DecoratR.Generator/DecoratR.Generator.csproj" />
   </Folder>

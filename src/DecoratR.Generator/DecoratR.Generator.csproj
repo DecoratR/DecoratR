@@ -1,11 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Title>DecoratR Source Generator</Title>
-    <Description>Roslyn source generator for DecoratR that discovers request handlers and decorators at compile time and emits dependency injection registrations.</Description>
     <TargetFramework>netstandard2.0</TargetFramework>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <Title>DecoratR Source Generator</Title>
+    <Description>Roslyn source generator for DecoratR that discovers request handlers and decorators at compile time and emits dependency injection registrations.</Description>
   </PropertyGroup>
 
   <ItemGroup>
