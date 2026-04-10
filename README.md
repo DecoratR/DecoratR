@@ -1,113 +1,94 @@
 # DecoratR
 
-A compile-time [Decorator Pattern](https://en.wikipedia.org/wiki/Decorator_pattern) for .NET. A Roslyn source generator
-discovers your request handlers and decorators, then wires them into the DI container automatically. No mediator, no
-runtime reflection, no pipelines.
+DecoratR is a compile-time decorator pipeline for .NET request handlers.
 
-## How It Works
+It uses a Roslyn source generator to find your handlers and decorators at build time and generates a single `AddDecoratR()` extension method for DI registration. That gives you ordered decorator chains without a mediator, runtime scanning, or reflection-based registration.
 
-You define request handlers (`IRequestHandler<TRequest, TResponse>`) and decorators. The source generator scans your
-assemblies at compile time, finds all handlers and decorators, and emits an `AddDecoratR()` extension method that
-registers everything in `IServiceCollection`.
+## Why use it
 
-When you resolve a handler from the container, you get the full decorated chain. Decorators are ordered by the `Order`
-property on the `[Decorator]` attribute. **Lower values run first (outermost)**:
+- Keep handler code focused on business logic.
+- Move logging, validation, timing, and exception handling into decorators.
+- Register handlers automatically at compile time.
+- Support multi-project solutions without manual DI wiring.
+- Stay friendly to AOT and trimming scenarios.
 
-```
+## The mental model
+
+DecoratR has three core concepts:
+
+- `IRequest` is the message.
+- `IRequestHandler<TRequest, TResponse>` handles that message.
+- `[Decorator]` wraps handlers with cross-cutting behavior.
+
+At runtime, you resolve a handler from DI and get the fully wrapped chain:
+
+```text
 Request
-  → [Order = 1] ExceptionHandling
-    → [Order = 2] PerformanceLogging
-      → [Order = 3] Validation
-        → Handler
+  -> [Order = 1] ExceptionHandlingDecorator
+    -> [Order = 2] PerformanceLoggingDecorator
+      -> [Order = 3] ValidationDecorator
+        -> Actual handler
 Response
 ```
 
+Lower `Order` values are outermost, so they run first on the way in and last on the way out.
+
 ## Packages
 
-| Package                   | Purpose                                                                                                                                             |
-|---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| **DecoratR.Abstractions** | Interfaces and attributes (`IRequest`, `IRequestHandler<,>`, `[Decorator]`). Reference this in library projects that define handlers or decorators. |
-| **DecoratR.Generator**    | The Roslyn source generator. Reference this as an analyzer in projects that need code generation.                                                   |
+| Package | Purpose |
+| --- | --- |
+| `DecoratR.Abstractions` | Interfaces and attributes used by handlers and decorators. |
+| `DecoratR.Generator` | Source generator that emits registration code. |
 
-```bash
-# Library / application layer (abstractions only)
-dotnet add package DecoratR.Abstractions
 
-# Host project (also needs the generator)
-dotnet add package DecoratR.Generator
-```
+## Quick start
 
-## Quick Start
+This is the simplest setup: one project contains the handlers, decorators, and application startup.
 
 ### 1. Define a request
 
-A request is any type that implements the marker interface `IRequest`:
-
 ```csharp
-public sealed record GreetCommand(string Name) : IRequest;
+using DecoratR;
+
+public sealed record GetGreetingQuery(string Name) : IRequest;
 ```
 
 ### 2. Implement a handler
 
-A handler implements `IRequestHandler<TRequest, TResponse>` for a specific request type:
-
 ```csharp
-internal sealed class GreetCommandHandler(IGreetingRepository repository)
-    : IRequestHandler<GreetCommand, string>
+using DecoratR;
+
+internal sealed class GetGreetingQueryHandler
+    : IRequestHandler<GetGreetingQuery, string>
 {
-    public async ValueTask<TResponse> HandleAsync(
-        GreetCommand command,
+    public ValueTask<string> HandleAsync(
+        GetGreetingQuery request,
         CancellationToken cancellationToken = default)
     {
-        var greeting = Greeting.Create(command.Name);
-        await repository.AddAsync(greeting, cancellationToken);
-        return greeting.Message;
+        return ValueTask.FromResult($"Hello, {request.Name}");
     }
 }
 ```
 
-Handlers can be `internal` or `public`. They can inject any dependencies through the constructor. The generator
-discovers them automatically, with no manual registration needed.
+Handlers can be `public` or `internal`. Constructor injection works as normal.
 
-### 3. Write decorators
+### 3. Add a decorator
 
-A decorator is an **open-generic** class that:
+Decorators must:
 
-- Implements `IRequestHandler<TRequest, TResponse>`
-- Is marked with `[Decorator]`
-- Receives the inner `IRequestHandler<TRequest, TResponse>` via constructor injection
+- be open generic
+- implement `IRequestHandler<TRequest, TResponse>`
+- be marked with `[Decorator]`
+- accept the inner `IRequestHandler<TRequest, TResponse>` through constructor injection
 
 ```csharp
+using DecoratR;
+using Microsoft.Extensions.Logging;
+
 [Decorator(Order = 1)]
-public sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
-    IRequestHandler<TRequest, TResponse> inner)
-    : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest
-{
-    public async ValueTask<TResponse> HandleAsync(
-        TRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await inner.HandleAsync(request, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            Activity.Current?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            throw;
-        }
-    }
-}
-```
-
-Decorators can also inject additional services:
-
-```csharp
-[Decorator(Order = 2)]
-public sealed class RequestLoggingDecorator<TRequest, TResponse>(
+public sealed class LoggingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
-    ILogger<RequestLoggingDecorator<TRequest, TResponse>> logger)
+    ILogger<LoggingDecorator<TRequest, TResponse>> logger)
     : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest
 {
@@ -115,64 +96,133 @@ public sealed class RequestLoggingDecorator<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Handling {Request}: {Payload}", typeof(TRequest).Name, request);
+        logger.LogInformation("Handling {RequestType}", typeof(TRequest).Name);
+
         var response = await inner.HandleAsync(request, cancellationToken);
-        logger.LogInformation("Handled {Request} → {Response}", typeof(TRequest).Name, response);
+
+        logger.LogInformation("Handled {RequestType}", typeof(TRequest).Name);
         return response;
     }
 }
 ```
 
-### 4. Configure the source generator
+### 4. Enable code generation
 
-The generator supports **two assembly-level attributes** that control what gets generated:
-
-#### `[GenerateDecoratRMetadata]` (for library projects)
-
-Use this in projects that define handlers and/or decorators but are **not** the composition root. The generator emits
-metadata that the composition root can discover at compile time.
+In the host project, add this assembly attribute:
 
 ```csharp
-// In your application layer project
-using DecoratR;
-
-[assembly: GenerateDecoratRMetadata]
-```
-
-This generates:
-
-- A `DecoratRHandlerRegistry` class listing all discovered handlers
-- A `DecoratRDecoratorRegistry` class with apply methods for each decorator
-- Assembly-level attributes so the composition root can find them across assembly boundaries
-
-#### `[GenerateDecoratRRegistrations]` (for the composition root)
-
-Use this in the host/startup project (e.g., your ASP.NET Core project). The generator scans the current assembly **and**
-all referenced assemblies for handlers and decorators, then emits the `AddDecoratR()` extension method.
-
-```csharp
-// AssemblyInfo.cs in the host project
 using DecoratR;
 
 [assembly: GenerateDecoratRRegistrations]
 ```
 
-### 5. Register services
+You can place it in `AssemblyInfo.cs` or any `.cs` file in that project.
 
-Call the generated `AddDecoratR()` method in your service configuration:
+### 5. Register DecoratR
+
+`AddDecoratR()` is generated at compile time for the host assembly.
 
 ```csharp
-var builder = WebApplication.CreateSlimBuilder(args);
+using MyApp;
 
-builder.Services.AddDecoratR(); // Generated at compile time
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDecoratR();
 
 var app = builder.Build();
 ```
 
-## Handler Lifetime
+If the generated extension method is not in scope, import your host assembly namespace, for example `using MyApp;`.
 
-By default, all handlers are registered as **Transient**. You can change the service lifetime by passing a configuration
-action to `AddDecoratR()`:
+### 6. Use the handler
+
+```csharp
+app.MapGet("/greeting/{name}", async (
+    string name,
+    IRequestHandler<GetGreetingQuery, string> handler,
+    CancellationToken cancellationToken) =>
+{
+    var result = await handler.HandleAsync(new GetGreetingQuery(name), cancellationToken);
+    return Results.Ok(new { message = result });
+});
+```
+
+That injected handler is the decorated chain, not just the raw handler implementation.
+
+## Single-project vs multi-project setup
+
+DecoratR supports both simple apps and layered solutions.
+
+| Scenario | What to reference | Which attribute to add |
+| --- | --- | --- |
+| Single project app | `DecoratR.Abstractions` and `DecoratR.Generator` | `[assembly: GenerateDecoratRRegistrations]` |
+| Class library that defines handlers or decorators | `DecoratR.Abstractions` and `DecoratR.Generator` | `[assembly: GenerateDecoratRMetadata]` |
+| Composition root / host project | `DecoratR.Generator` | `[assembly: GenerateDecoratRRegistrations]` |
+
+### Multi-project example
+
+```text
+MyApp.Domain/
+MyApp.Application/     handlers, decorators
+MyApp.Infrastructure/  repositories, external services
+MyApp.Api/             ASP.NET Core host
+```
+
+Use this split:
+
+- `MyApp.Application` references `DecoratR.Abstractions` and `DecoratR.Generator`, and adds `[assembly: GenerateDecoratRMetadata]`.
+- `MyApp.Api` references `DecoratR.Generator`, references `MyApp.Application`, and adds `[assembly: GenerateDecoratRRegistrations]`.
+- `MyApp.Api` calls `builder.Services.AddDecoratR()`.
+
+The host generator reads metadata from referenced assemblies and generates registrations for the whole graph.
+
+## Decorator behavior
+
+### Ordering
+
+- Lower `Order` values are applied first and become the outermost decorators.
+- Higher `Order` values are closer to the handler.
+- If two decorators have the same `Order`, DecoratR sorts them alphabetically by fully qualified name.
+
+### Scoping decorators to specific request types
+
+By default, a decorator constrained as `where TRequest : IRequest` wraps every handler.
+
+To target only some requests, use a more specific constraint:
+
+```csharp
+public interface ICommand : IRequest;
+public interface IQuery : IRequest;
+
+public sealed record CreateUserCommand(string Name) : ICommand;
+public sealed record GetUsersQuery() : IQuery;
+
+[Decorator(Order = 2)]
+public sealed class ValidationDecorator<TRequest, TResponse>(
+    IRequestHandler<TRequest, TResponse> inner,
+    IValidator<TRequest> validator)
+    : IRequestHandler<TRequest, TResponse>
+    where TRequest : ICommand
+{
+    public async ValueTask<TResponse> HandleAsync(
+        TRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        return await inner.HandleAsync(request, cancellationToken);
+    }
+}
+```
+
+In that example, the decorator applies to command handlers only.
+
+This works across assembly boundaries because the generator records request type metadata at compile time.
+
+## Handler lifetime
+
+Handlers are registered as `Transient` by default.
+
+You can override that for all generated registrations:
 
 ```csharp
 builder.Services.AddDecoratR(options =>
@@ -181,127 +231,56 @@ builder.Services.AddDecoratR(options =>
 });
 ```
 
-This sets the lifetime for **all** handler registrations. Decorators automatically inherit the lifetime of the handler they wrap.
+Decorators inherit the lifetime of the handler they wrap.
 
-### 6. Use handlers
+## What gets generated
 
-Inject `IRequestHandler<TRequest, TResponse>` anywhere you need it. The container returns the fully decorated chain:
+DecoratR generates different code depending on where you enable it.
 
-```csharp
-app.MapPost("/greet", async (
-    IRequestHandler<GreetCommand, string> handler,
-    GreetRequest request,
-    CancellationToken cancellationToken) =>
-{
-    var result = await handler.HandleAsync(
-        new GreetCommand(request.Name), cancellationToken);
-    return Results.Ok(new { Message = result });
-});
-```
+### In library projects marked with `[GenerateDecoratRMetadata]`
 
-## Multi-Project Setup
+DecoratR emits:
 
-A typical Clean Architecture setup looks like this:
+- a handler registry
+- a decorator registry
+- assembly-level metadata used by the host project
 
-```
-MyApp.Domain/             → Domain entities (no DecoratR reference needed)
-MyApp.Application/        → Handlers, decorators, abstractions
-                            References: DecoratR.Abstractions + DecoratR.Generator (analyzer)
-                            Assembly attribute: [GenerateDecoratRMetadata]
+### In the host project marked with `[GenerateDecoratRRegistrations]`
 
-MyApp.Infrastructure/     → Repository implementations, external services
-MyApp.Presentation/       → ASP.NET Core host, endpoint definitions
-                            References: DecoratR.Generator (analyzer)
-                            Assembly attribute: [GenerateDecoratRRegistrations]
-```
+DecoratR emits:
 
-The key rules:
+- `AddDecoratR()`
+- `DecoratROptions`
+- the DI registration code that wires handlers and decorators together
 
-1. **Library projects** that define handlers/decorators use `[GenerateDecoratRMetadata]` and reference both
-   `DecoratR.Abstractions` and `DecoratR.Generator` (as analyzer).
-2. **The composition root** (host project) uses `[GenerateDecoratRRegistrations]` and references `DecoratR.Generator` (
-   as analyzer). It picks up handlers and decorators from all referenced assemblies automatically.
-3. By default, decorators are applied to **every** handler across all assemblies.
-   Use [type constraints](#scoping-decorators-to-specific-request-types) to limit a decorator to specific request types.
-
-## Scoping Decorators to Specific Request Types
-
-By default, a decorator with `where TRequest : IRequest` wraps every handler. To restrict a decorator to a subset of
-requests, narrow the generic constraint to a more specific type:
-
-```csharp
-// Define marker interfaces for different request kinds
-public interface ICommand : IRequest;
-public interface IQuery : IRequest;
-
-// Requests
-public sealed record CreateUserCommand(string Name) : ICommand;
-public sealed record GetUsersQuery : IQuery;
-
-// This decorator only wraps ICommand handlers
-[Decorator(Order = 2)]
-public sealed class ValidationDecorator<TRequest, TResponse>(
-    IRequestHandler<TRequest, TResponse> inner,
-    IValidator<TRequest> validator)
-    : IRequestHandler<TRequest, TResponse>
-    where TRequest : ICommand          // ← only commands
-{
-    public async ValueTask<TResponse> HandleAsync(
-        TRequest request, CancellationToken cancellationToken = default)
-    {
-        await validator.ValidateAndThrowAsync(request, cancellationToken);
-        return await inner.HandleAsync(request, cancellationToken);
-    }
-}
-```
-
-The generator reads the constraint at compile time and only emits `DecorateService` calls for handlers whose request
-type satisfies the constraint. In the example above, `ValidationDecorator` wraps `CreateUserCommand` (which implements
-`ICommand`) but **not** `GetUsersQuery`.
-
-This works across assembly boundaries and supports any constraint expressible in C#: interfaces, base classes, or
-combinations like `where TRequest : ICommand, ILoggable`.
-
-## Decorator Ordering
-
-Decorators wrap handlers from the outside in. **Lower `Order` values execute first** (outermost), meaning they see the
-request before higher-order decorators:
-
-| Order | Decorator                     | Position                             |
-|-------|-------------------------------|--------------------------------------|
-| 1     | `ExceptionHandlingDecorator`  | Outermost. Catches everything.       |
-| 2     | `PerformanceLoggingDecorator` | Measures time of inner chain         |
-| 3     | `RequestLoggingDecorator`     | Logs request/response                |
-| 4     | `ValidationDecorator`         | Innermost. Validates before handler. |
-
-When two decorators share the same `Order`, they are sorted alphabetically by name.
+You do not manually register each handler or decorator.
 
 ## Diagnostics
 
-The generator reports diagnostics to help with discovery:
+The generator reports a small set of diagnostics to help with discovery and troubleshooting.
 
-| Code      | Severity | Description                               |
-|-----------|----------|-------------------------------------------|
-| `DCTR001` | Info     | No handlers found in the current assembly |
-| `DCTR002` | Info     | Lists all discovered handlers             |
-| `DCTR003` | Info     | Lists all discovered decorators           |
-
-## AOT Compatibility
-
-DecoratR is designed to work with Native AOT.
+| Code | Severity | Meaning |
+| --- | --- | --- |
+| `DCTR001` | Warning | No handlers or decorators were found for the marked assembly. |
+| `DCTR002` | Info | Handlers were discovered successfully. |
+| `DCTR003` | Info | Decorators were discovered successfully. |
 
 ## Requirements
 
-- .NET 8+
+- Repository development and the included samples use .NET SDK `10.0.0` as pinned in `global.json`.
+- `DecoratR.Abstractions` targets `net8.0`, `net9.0`, and `net10.0`.
+- `DecoratR.Generator` targets `netstandard2.0` as a Roslyn analyzer.
 
-## Examples
+## Examples in this repository
 
-Working examples are available in the [`examples/`](examples/) directory:
+### Simple API
 
-| Example                                                | Description                                                                                                                                                                                |
-|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [**Simple API**](examples/simple-api/)                 | A single-project minimal API that uses DecoratR with a logging decorator. The simplest way to get started.                                                                                 |
-| [**Clean Architecture**](examples/clean-architecture/) | A multi-project CQRS setup with `IQuery`/`ICommand`/`IQueryHandler`/`ICommandHandler` abstractions layered on top of DecoratR, plus exception handling and performance logging decorators. |
+The fastest example to read. It shows a minimal ASP.NET Core app with handlers, a decorator, and generated registration.
 
-Both examples use a [shared project](examples/shared/) containing an in-memory Todo repository seeded with fake data
-via [Bogus](https://github.com/bchavez/Bogus).
+### Clean Architecture
+
+Shows the cross-assembly setup with metadata generation in the application layer and full registration generation in the API project.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
