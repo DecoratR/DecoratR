@@ -6,7 +6,7 @@ namespace DecoratR.Sample.Application.Greetings.Commands;
 internal sealed class GreetCommandHandler(IGreetingRepository repository)
     : IRequestHandler<GreetCommand, string>
 {
-    public async ValueTask<string> HandleAsync(GreetCommand command, CancellationToken cancellationToken = default)
+    public async ValueTask<string> HandleAsync(GreetCommand command, CancellationToken cancellationToken)
     {
         var greeting = Greeting.Create(command.Name);
         await repository.AddAsync(greeting, cancellationToken);

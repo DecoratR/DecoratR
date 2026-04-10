@@ -6,10 +6,10 @@ namespace DecoratR.Generator;
 
 internal static class Diagnostics
 {
-    public static readonly DiagnosticDescriptor NoHandlersFound = new(
+    public static readonly DiagnosticDescriptor NothingFound = new(
         "DCTR001",
-        "No handlers found",
-        "Assembly '{0}' has [GenerateHandlerRegistrations] but no IRequestHandler<,> implementations were found",
+        "No handlers or decorators found",
+        "Assembly '{0}' has [GenerateDecoratRMetadata] but no handlers or decorators were found",
         "DecoratR.Generator",
         DiagnosticSeverity.Warning,
         true);

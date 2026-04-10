@@ -6,5 +6,5 @@ namespace DecoratR;
 public interface IRequestHandler<in TRequest, TResponse>
     where TRequest : IRequest
 {
-    ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken);
 }

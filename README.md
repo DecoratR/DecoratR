@@ -52,7 +52,7 @@ internal sealed class GreetCommandHandler(IGreetingRepository repository)
 {
     public async ValueTask<TResponse> HandleAsync(
         GreetCommand command,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var greeting = Greeting.Create(command.Name);
         await repository.AddAsync(greeting, cancellationToken);
@@ -79,7 +79,7 @@ public sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -106,7 +106,7 @@ public sealed class RequestLoggingDecorator<TRequest, TResponse>(
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Handling {Request}: {Payload}", typeof(TRequest).Name, request);
         var response = await inner.HandleAsync(request, cancellationToken);
@@ -120,7 +120,7 @@ public sealed class RequestLoggingDecorator<TRequest, TResponse>(
 
 The generator supports **two assembly-level attributes** that control what gets generated:
 
-#### `[GenerateHandlerRegistrations]` (for library projects)
+#### `[GenerateDecoratRMetadata]` (for library projects)
 
 Use this in projects that define handlers and/or decorators but are **not** the composition root. The generator emits metadata that the composition root can discover at compile time.
 
@@ -128,11 +128,12 @@ Use this in projects that define handlers and/or decorators but are **not** the 
 // In your application layer project
 using DecoratR;
 
-[assembly: GenerateHandlerRegistrations]
+[assembly: GenerateDecoratRMetadata]
 ```
 
 This generates:
 - A `DecoratRHandlerRegistry` class listing all discovered handlers
+- A `DecoratRDecoratorRegistry` class with apply methods for each decorator
 - Assembly-level attributes so the composition root can find them across assembly boundaries
 
 #### `[GenerateDecoratRRegistrations]` (for the composition root)
@@ -182,7 +183,7 @@ A typical Clean Architecture setup looks like this:
 MyApp.Domain/             → Domain entities (no DecoratR reference needed)
 MyApp.Application/        → Handlers, decorators, abstractions
                             References: DecoratR.Abstractions + DecoratR.Generator (analyzer)
-                            Assembly attribute: [GenerateHandlerRegistrations]
+                            Assembly attribute: [GenerateDecoratRMetadata]
 
 MyApp.Infrastructure/     → Repository implementations, external services
 MyApp.Presentation/       → ASP.NET Core host, endpoint definitions
@@ -191,7 +192,7 @@ MyApp.Presentation/       → ASP.NET Core host, endpoint definitions
 ```
 
 The key rules:
-1. **Library projects** that define handlers/decorators use `[GenerateHandlerRegistrations]` and reference both `DecoratR.Abstractions` and `DecoratR.Generator` (as analyzer).
+1. **Library projects** that define handlers/decorators use `[GenerateDecoratRMetadata]` and reference both `DecoratR.Abstractions` and `DecoratR.Generator` (as analyzer).
 2. **The composition root** (host project) uses `[GenerateDecoratRRegistrations]` and references `DecoratR.Generator` (as analyzer). It picks up handlers and decorators from all referenced assemblies automatically.
 3. Decorators are applied to **every** handler across all assemblies. They are sorted by `Order`, then by name.
 

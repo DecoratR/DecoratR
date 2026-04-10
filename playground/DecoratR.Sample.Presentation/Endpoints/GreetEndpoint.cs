@@ -14,7 +14,7 @@ public static class GreetEndpoint
     private static async ValueTask<IResult> Handle(
         [FromServices] IRequestHandler<GreetCommand, string> handler,
         [FromBody] GreetRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GreetCommand(request.Name), cancellationToken);
         return Results.Ok(new Response(result));

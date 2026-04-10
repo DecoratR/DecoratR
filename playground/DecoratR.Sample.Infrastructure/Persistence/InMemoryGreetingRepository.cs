@@ -8,13 +8,13 @@ internal sealed class InMemoryGreetingRepository : IGreetingRepository
 {
     private readonly ConcurrentDictionary<string, Greeting> _greetings = new(StringComparer.OrdinalIgnoreCase);
 
-    public Task<Greeting?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
+    public Task<Greeting?> GetByNameAsync(string name, CancellationToken cancellationToken)
     {
         _greetings.TryGetValue(name, out var greeting);
         return Task.FromResult(greeting);
     }
 
-    public Task AddAsync(Greeting greeting, CancellationToken cancellationToken = default)
+    public Task AddAsync(Greeting greeting, CancellationToken cancellationToken)
     {
         _greetings[greeting.Name] = greeting;
         return Task.CompletedTask;
