@@ -177,7 +177,7 @@ Inject `IRequestHandler<TRequest, TResponse>` anywhere you need it. The containe
 app.MapPost("/greet", async (
     IRequestHandler<GreetCommand, string> handler,
     GreetRequest request,
-    CancellationToken cancellationToken = default) =>
+    CancellationToken cancellationToken) =>
 {
     var result = await handler.HandleAsync(
         new GreetCommand(request.Name), cancellationToken);
