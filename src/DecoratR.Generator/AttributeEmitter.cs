@@ -139,7 +139,9 @@ internal static class AttributeEmitter
                /// <summary>
                /// Configuration options for DecoratR handler registrations.
                /// </summary>
-               [global::System.CodeDom.Compiler.GeneratedCode("DecoratR.Generator", "1.0.0")]
+               """ +
+               $"[global::System.CodeDom.Compiler.GeneratedCode(\"DecoratR.Generator\", \"{DecoratRGeneratorVersion.Value}\")]\n" +
+               """
                public sealed class DecoratROptions
                {
                    /// <summary>
