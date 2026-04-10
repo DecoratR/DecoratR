@@ -38,6 +38,10 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
+      - name: Set generator version
+        run: |
+          sed -i "s/const string Value = \"1.0.0\"/const string Value = \"${{ needs.get-version.outputs.VERSION }}\"/" src/DecoratR.Generator/Version.cs
+
       - name: Pack Abstractions
         run: dotnet pack ./src/DecoratR.Abstractions -c Release --no-restore --output nupkgs /p:Version=${{ needs.get-version.outputs.VERSION }}
 
