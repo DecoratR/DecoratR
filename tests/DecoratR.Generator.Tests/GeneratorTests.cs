@@ -69,7 +69,8 @@ public class GeneratorTests
         Assert.Contains("GenerateDecoratRRegistrationsAttribute", handlerAttribute);
 
         var fullAttribute = generatedTrees.First(t => t.Contains("class GenerateDecoratRRegistrationsAttribute"));
-        Assert.Contains("Generates the <c>AddDecoratR()</c> registration entry point for the current composition root.", fullAttribute);
+        Assert.Contains("Generates the <c>AddDecoratR()</c> registration entry point for the current composition root.",
+            fullAttribute);
         Assert.Contains("Apply this to the host or startup assembly.", fullAttribute);
         Assert.Contains("registers handlers and applies decorators in pipeline order.", fullAttribute);
     }
@@ -630,10 +631,12 @@ public class GeneratorTests
         var outerIdx = registrations.IndexOf("OuterDecorator", StringComparison.Ordinal);
 
         // In the Decorate calls section, InnerDecorator should appear before OuterDecorator
-        var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         var innerDecorateIdx = decorateSection.IndexOf("InnerDecorator", StringComparison.Ordinal);
         var outerDecorateIdx = decorateSection.IndexOf("OuterDecorator", StringComparison.Ordinal);
-        Assert.True(innerDecorateIdx < outerDecorateIdx, "InnerDecorator (Order=2) should be applied first (closer to handler)");
+        Assert.True(innerDecorateIdx < outerDecorateIdx,
+            "InnerDecorator (Order=2) should be applied first (closer to handler)");
     }
 
     // ─── Full path: Local handlers have "Register local handlers" comment ────
@@ -935,10 +938,12 @@ public class GeneratorTests
 
         // LocalDecorator (Order=2, innermost) should appear before AppDecorator (Order=1, outermost)
         // in the DecorateService calls because innermost decorators are registered first
-        var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         var localIdx = decorateSection.IndexOf("LocalDecorator", StringComparison.Ordinal);
         var appIdx = decorateSection.IndexOf("ApplyAppDecorator", StringComparison.Ordinal);
-        Assert.True(localIdx < appIdx, "LocalDecorator (Order=2, innermost) should be registered before AppDecorator (Order=1, outermost)");
+        Assert.True(localIdx < appIdx,
+            "LocalDecorator (Order=2, innermost) should be registered before AppDecorator (Order=1, outermost)");
     }
 
     [Fact]
@@ -987,7 +992,8 @@ public class GeneratorTests
         // Referenced decorator should be applied to BOTH local and remote handlers via apply method
         Assert.Contains("ApplyAppDecorator", registrations);
 
-        var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         // ApplyAppDecorator should be called with both LocalCommand and RemoteCommand type args
         Assert.Contains("LocalCommand", decorateSection);
         Assert.Contains("RemoteCommand", decorateSection);
@@ -1263,7 +1269,8 @@ public class GeneratorTests
         // Should reference the decorator type internally
         Assert.Contains("LoggingDecorator<TRequest, TResponse>", decoratorRegistry);
         // Apply method should call DecorateService with the correct decorator type
-        Assert.Contains("DecorateService<TRequest, TResponse, global::LoggingDecorator<TRequest, TResponse>>(services)", decoratorRegistry);
+        Assert.Contains("DecorateService<TRequest, TResponse, global::LoggingDecorator<TRequest, TResponse>>(services)",
+            decoratorRegistry);
     }
 
     // ─── Helper methods ─────────────────────────────────────────────────────

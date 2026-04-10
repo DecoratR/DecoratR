@@ -15,7 +15,8 @@ public class PerformanceLoggingDecorator<TRequest, TResponse>(
         var response = await inner.HandleAsync(request, cancellationToken);
         var elapsed = Stopwatch.GetElapsedTime(timestamp);
 
-        logger.LogInformation("{RequestType} completed in {ElapsedMs}ms", typeof(TRequest).Name, elapsed.TotalMilliseconds);
+        logger.LogInformation("{RequestType} completed in {ElapsedMs}ms", typeof(TRequest).Name,
+            elapsed.TotalMilliseconds);
 
         return response;
     }

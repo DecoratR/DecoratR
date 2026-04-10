@@ -23,13 +23,11 @@ internal static class HandlerRegistryEmitter
             .AppendLine("\")]");
 
         foreach (var handler in handlers)
-        {
             sb.Append("[assembly: global::DecoratR.DecoratRHandlerServiceType(\"")
                 .Append(handler.RequestFullyQualifiedName)
                 .Append("\", \"")
                 .Append(handler.ResponseFullyQualifiedName)
                 .AppendLine("\")]");
-        }
 
         sb.AppendLine();
         sb.Append("namespace ").Append(assemblyName).AppendLine(";");
@@ -41,11 +39,11 @@ internal static class HandlerRegistryEmitter
 
         // XML summary
         sb.AppendIndentedLine(1, "/// <summary>");
-        sb.Append("    /// ").Append(handlers.Count).Append(" handler(s) discovered in <c>").Append(assemblyName).AppendLine("</c>.");
+        sb.Append("    /// ").Append(handlers.Count).Append(" handler(s) discovered in <c>").Append(assemblyName)
+            .AppendLine("</c>.");
         sb.AppendIndentedLine(1, "/// <list type=\"bullet\">");
 
         foreach (var handler in handlers)
-        {
             sb.Append("    /// <item><description><c>")
                 .Append(StripGlobalPrefix(handler.HandlerFullyQualifiedName))
                 .Append("</c> handles <c>IRequestHandler&lt;")
@@ -53,7 +51,6 @@ internal static class HandlerRegistryEmitter
                 .Append(", ")
                 .Append(StripGlobalPrefix(handler.ResponseFullyQualifiedName))
                 .AppendLine("&gt;</c></description></item>");
-        }
 
         sb.AppendIndentedLine(1, "/// </list>");
         sb.AppendIndentedLine(1, "/// </summary>");
@@ -62,7 +59,6 @@ internal static class HandlerRegistryEmitter
         sb.AppendIndentedLine(1, "[");
 
         foreach (var handler in handlers)
-        {
             sb.Append("        new(typeof(global::DecoratR.IRequestHandler<")
                 .Append(handler.RequestFullyQualifiedName)
                 .Append(", ")
@@ -70,18 +66,22 @@ internal static class HandlerRegistryEmitter
                 .Append(">), typeof(")
                 .Append(handler.HandlerFullyQualifiedName)
                 .AppendLine(")),");
-        }
 
         sb.AppendIndentedLine(1, "];");
         sb.AppendLine();
         sb.AppendIndentedLine(1, "public sealed record HandlerRegistration(");
         sb.AppendIndentedLine(2, "global::System.Type ServiceType,");
-        sb.AppendIndentedLine(2, "[property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] global::System.Type ImplementationType);");
+        sb.AppendIndentedLine(2,
+            "[property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] global::System.Type ImplementationType);");
         sb.AppendLine("}");
 
         return sb.ToString();
     }
 
-    private static string StripGlobalPrefix(string typeName) =>
-        typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase) ? typeName.Substring("global::".Length) : typeName;
+    private static string StripGlobalPrefix(string typeName)
+    {
+        return typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase)
+            ? typeName.Substring("global::".Length)
+            : typeName;
+    }
 }

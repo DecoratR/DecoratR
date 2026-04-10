@@ -38,10 +38,7 @@ internal static class DecoratorRegistryEmitter
         // Per-decorator public apply methods
         for (var i = 0; i < decorators.Count; i++)
         {
-            if (i > 0)
-            {
-                sb.AppendLine();
-            }
+            if (i > 0) sb.AppendLine();
 
             EmitApplyMethod(sb, decorators[i]);
         }
@@ -79,14 +76,16 @@ internal static class DecoratorRegistryEmitter
     {
         sb.AppendIndentedLine(1, "private static void DecorateService<TRequest, TResponse,");
         sb.AppendIndentedLine(2, "[global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(");
-        sb.AppendIndentedLine(3, "global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(");
+        sb.AppendIndentedLine(3,
+            "global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(");
         sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
         sb.AppendIndentedLine(2, "where TRequest : global::DecoratR.IRequest");
         sb.AppendIndentedLine(2, "where TDecorator : global::DecoratR.IRequestHandler<TRequest, TResponse>");
         sb.AppendIndentedLine(1, "{");
         sb.AppendIndentedLine(2, "var serviceType = typeof(global::DecoratR.IRequestHandler<TRequest, TResponse>);");
         sb.AppendLine();
-        sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor? wrappedDescriptor = null;");
+        sb.AppendIndentedLine(2,
+            "global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor? wrappedDescriptor = null;");
         sb.AppendIndentedLine(2, "int index = -1;");
         sb.AppendIndentedLine(2, "for (int i = 0; i < services.Count; i++)");
         sb.AppendIndentedLine(2, "{");
@@ -105,7 +104,8 @@ internal static class DecoratorRegistryEmitter
         sb.AppendIndentedLine(2, "}");
         sb.AppendLine();
         sb.AppendIndentedLine(2, "services.RemoveAt(index);");
-        sb.AppendIndentedLine(2, "services.Insert(index, global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(");
+        sb.AppendIndentedLine(2,
+            "services.Insert(index, global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(");
         sb.AppendIndentedLine(3, "serviceType,");
         sb.AppendIndentedLine(3, "provider =>");
         sb.AppendIndentedLine(3, "{");
@@ -115,7 +115,8 @@ internal static class DecoratorRegistryEmitter
         sb.AppendIndentedLine(6, "global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance(");
         sb.AppendIndentedLine(7, "provider, wrappedDescriptor.ImplementationType!);");
         sb.AppendLine();
-        sb.AppendIndentedLine(4, "return global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance(");
+        sb.AppendIndentedLine(4,
+            "return global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance(");
         sb.AppendIndentedLine(5, "provider, typeof(TDecorator), innerInstance);");
         sb.AppendIndentedLine(3, "},");
         sb.AppendIndentedLine(3, "wrappedDescriptor.Lifetime));");
@@ -134,6 +135,10 @@ internal static class DecoratorRegistryEmitter
         return string.Concat("Apply", name);
     }
 
-    private static string StripGlobalPrefix(string typeName) =>
-        typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase) ? typeName.Substring("global::".Length) : typeName;
+    private static string StripGlobalPrefix(string typeName)
+    {
+        return typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase)
+            ? typeName.Substring("global::".Length)
+            : typeName;
+    }
 }

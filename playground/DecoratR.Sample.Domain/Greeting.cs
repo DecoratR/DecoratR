@@ -18,10 +18,12 @@ public sealed class Greeting
 
     public DateTime CreatedAt { get; private set; }
 
-    public static Greeting Create(string name) =>
-        new(
+    public static Greeting Create(string name)
+    {
+        return new Greeting(
             Guid.NewGuid(),
             name,
             $"Hello, {name}!",
             DateTime.UtcNow);
+    }
 }

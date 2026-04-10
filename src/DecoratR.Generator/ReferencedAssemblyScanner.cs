@@ -23,18 +23,17 @@ internal static class ReferencedAssemblyScanner
             {
                 var attrName = attr.AttributeClass?.Name;
 
-                if (attrName == HandlerRegistrationAttributeName && attr.ConstructorArguments.Length == 1 && attr.ConstructorArguments[0].Value is string className)
-                {
+                if (attrName == HandlerRegistrationAttributeName && attr.ConstructorArguments.Length == 1 &&
+                    attr.ConstructorArguments[0].Value is string className)
                     registryClassNames.Add(className);
-                }
-                else if (attrName == HandlerServiceTypeAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string requestType && attr.ConstructorArguments[1].Value is string responseType)
-                {
+                else if (attrName == HandlerServiceTypeAttributeName && attr.ConstructorArguments.Length == 2 &&
+                         attr.ConstructorArguments[0].Value is string requestType &&
+                         attr.ConstructorArguments[1].Value is string responseType)
                     serviceTypes.Add(new HandlerMetadata(string.Empty, requestType, responseType));
-                }
-                else if (attrName == DecoratorRegistrationAttributeName && attr.ConstructorArguments.Length == 2 && attr.ConstructorArguments[0].Value is string applyMethodName && attr.ConstructorArguments[1].Value is int order)
-                {
+                else if (attrName == DecoratorRegistrationAttributeName && attr.ConstructorArguments.Length == 2 &&
+                         attr.ConstructorArguments[0].Value is string applyMethodName &&
+                         attr.ConstructorArguments[1].Value is int order)
                     decorators.Add(new ReferencedDecoratorInfo(applyMethodName, order));
-                }
             }
         }
 

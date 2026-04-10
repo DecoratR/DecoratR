@@ -16,10 +16,7 @@ public sealed class InMemoryTodoRepository : ITodoRepository
                 f.Random.Bool(),
                 f.Date.Recent(30).ToUniversalTime()));
 
-        foreach (var todo in faker.Generate(10))
-        {
-            _todos[todo.Id] = todo;
-        }
+        foreach (var todo in faker.Generate(10)) _todos[todo.Id] = todo;
     }
 
     public ValueTask<IReadOnlyList<Todo>> GetAllAsync(CancellationToken cancellationToken)

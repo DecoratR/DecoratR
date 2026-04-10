@@ -66,10 +66,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
             var (((hasAttr, handlers), decorators), name) = source;
-            if (!hasAttr)
-            {
-                return;
-            }
+            if (!hasAttr) return;
 
             var sortedDecorators = decorators
                 .Distinct()
@@ -116,10 +113,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
             var ((((hasAttr, localH), referenced), decorators), name) = source;
-            if (!hasAttr)
-            {
-                return;
-            }
+            if (!hasAttr) return;
 
             var sortedLocalHandlers = localH
                 .Distinct()
@@ -180,22 +174,16 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         var totalDecoratorCount = localDecorators.Length + referenced.Decorators.Length;
 
         if (totalHandlerCount == 0 && totalDecoratorCount == 0)
-        {
             spc.ReportDiagnostic(Diagnostic.Create(
                 Diagnostics.NothingFound, Location.None, assemblyName));
-        }
 
         if (totalHandlerCount > 0)
-        {
             spc.ReportDiagnostic(Diagnostic.Create(
                 Diagnostics.HandlersDiscovered, Location.None, totalHandlerCount, assemblyName));
-        }
 
         if (totalDecoratorCount > 0)
-        {
             spc.ReportDiagnostic(Diagnostic.Create(
                 Diagnostics.DecoratorsDiscovered, Location.None, totalDecoratorCount, assemblyName));
-        }
 
         spc.AddSource("DecoratRRegistrations.g.cs",
             FullRegistrationEmitter.Generate(assemblyName, localHandlers,

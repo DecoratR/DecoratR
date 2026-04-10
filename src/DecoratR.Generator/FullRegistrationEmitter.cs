@@ -38,7 +38,8 @@ internal static class FullRegistrationEmitter
             .AppendLine(" decorator(s) discovered across the compilation.");
         sb.AppendIndentedLine(1, "/// </summary>");
 
-        sb.AppendIndentedLine(1, "public static global::Microsoft.Extensions.DependencyInjection.IServiceCollection AddDecoratR(");
+        sb.AppendIndentedLine(1,
+            "public static global::Microsoft.Extensions.DependencyInjection.IServiceCollection AddDecoratR(");
         sb.AppendIndentedLine(2, "this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
         sb.AppendIndentedLine(1, "{");
 
@@ -64,10 +65,7 @@ internal static class FullRegistrationEmitter
     private static void EmitReferencedHandlerRegistrations(
         StringBuilder sb, ImmutableArray<string> registryClassNames)
     {
-        if (registryClassNames.Length == 0)
-        {
-            return;
-        }
+        if (registryClassNames.Length == 0) return;
 
         sb.AppendIndentedLine(2, "// Register handlers from referenced assemblies");
 
@@ -75,7 +73,8 @@ internal static class FullRegistrationEmitter
         {
             sb.Append("        foreach (var handler in global::").Append(registryClassName).AppendLine(".Handlers)");
             sb.AppendIndentedLine(2, "{");
-            sb.AppendIndentedLine(3, "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
+            sb.AppendIndentedLine(3,
+                "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
             sb.AppendIndentedLine(4, "handler.ServiceType,");
             sb.AppendIndentedLine(4, "handler.ImplementationType,");
             sb.AppendIndentedLine(4, "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient));");
@@ -86,21 +85,16 @@ internal static class FullRegistrationEmitter
     private static void EmitLocalHandlerRegistrations(
         StringBuilder sb, IReadOnlyList<HandlerMetadata> localHandlers, bool hasReferenced)
     {
-        if (localHandlers.Count == 0)
-        {
-            return;
-        }
+        if (localHandlers.Count == 0) return;
 
-        if (hasReferenced)
-        {
-            sb.AppendLine();
-        }
+        if (hasReferenced) sb.AppendLine();
 
         sb.AppendIndentedLine(2, "// Register local handlers");
 
         foreach (var handler in localHandlers)
         {
-            sb.AppendIndentedLine(2, "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
+            sb.AppendIndentedLine(2,
+                "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
             sb.Append("            typeof(global::DecoratR.IRequestHandler<")
                 .Append(handler.RequestFullyQualifiedName)
                 .Append(", ")
@@ -118,26 +112,16 @@ internal static class FullRegistrationEmitter
         IReadOnlyList<DecoratorMetadata> localDecorators,
         ImmutableArray<ReferencedDecoratorInfo> referencedDecorators)
     {
-        if (localDecorators.Count == 0 && referencedDecorators.Length == 0)
-        {
-            return;
-        }
+        if (localDecorators.Count == 0 && referencedDecorators.Length == 0) return;
 
         var serviceTypeSet = new HashSet<(string Request, string Response)>();
         foreach (var h in localHandlers)
-        {
             serviceTypeSet.Add((h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName));
-        }
 
         foreach (var h in referencedServiceTypes)
-        {
             serviceTypeSet.Add((h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName));
-        }
 
-        if (serviceTypeSet.Count == 0)
-        {
-            return;
-        }
+        if (serviceTypeSet.Count == 0) return;
 
         var allServiceTypes = new List<(string Request, string Response)>(serviceTypeSet);
         allServiceTypes.Sort((a, b) =>
@@ -148,15 +132,9 @@ internal static class FullRegistrationEmitter
 
         // Merge local and referenced decorators into a single ordered list
         var allDecorators = new List<(int Order, string Name, bool IsLocal)>();
-        foreach (var d in localDecorators)
-        {
-            allDecorators.Add((d.Order, d.DecoratorFullyQualifiedName, true));
-        }
+        foreach (var d in localDecorators) allDecorators.Add((d.Order, d.DecoratorFullyQualifiedName, true));
 
-        foreach (var d in referencedDecorators)
-        {
-            allDecorators.Add((d.Order, d.ApplyMethodName, false));
-        }
+        foreach (var d in referencedDecorators) allDecorators.Add((d.Order, d.ApplyMethodName, false));
 
         allDecorators.Sort((a, b) =>
         {
@@ -168,28 +146,22 @@ internal static class FullRegistrationEmitter
         sb.AppendIndentedLine(2, "// Apply decorators (ordered by Order, lowest = outermost)");
 
         foreach (var (requestType, responseType) in allServiceTypes)
-        {
             for (var i = allDecorators.Count - 1; i >= 0; i--)
             {
                 var (_, name, isLocal) = allDecorators[i];
 
                 if (isLocal)
-                {
                     // Local decorator: generated DecorateService<> call
                     sb.Append("        DecorateService<")
                         .Append(requestType).Append(", ")
                         .Append(responseType).Append(", ")
                         .Append(name).Append('<').Append(requestType).Append(", ").Append(responseType)
                         .AppendLine(">>(services);");
-                }
                 else
-                {
                     // Referenced decorator: call the generated apply method
                     sb.Append("        global::").Append(name)
                         .Append('<').Append(requestType).Append(", ").Append(responseType)
                         .AppendLine(">(services);");
-                }
             }
-        }
     }
 }

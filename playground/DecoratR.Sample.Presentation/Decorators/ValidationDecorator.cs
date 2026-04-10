@@ -18,10 +18,7 @@ public sealed class ValidationDecorator<TRequest, TResponse>(
                 validators.Select(v => v.ValidateAsync(context, cancellationToken)));
             var failures = results.SelectMany(r => r.Errors).Where(f => f is not null).ToList();
 
-            if (failures.Count > 0)
-            {
-                throw new ValidationException(failures);
-            }
+            if (failures.Count > 0) throw new ValidationException(failures);
         }
 
         return await inner.HandleAsync(request, cancellationToken);

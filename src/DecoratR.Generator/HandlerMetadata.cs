@@ -13,20 +13,19 @@ internal sealed class HandlerMetadata(
 
     public bool Equals(HandlerMetadata? other)
     {
-        if (other is null)
-        {
-            return false;
-        }
+        if (other is null) return false;
 
-        if (ReferenceEquals(this, other))
-        {
-            return true;
-        }
+        if (ReferenceEquals(this, other)) return true;
 
-        return HandlerFullyQualifiedName == other.HandlerFullyQualifiedName && RequestFullyQualifiedName == other.RequestFullyQualifiedName && ResponseFullyQualifiedName == other.ResponseFullyQualifiedName;
+        return HandlerFullyQualifiedName == other.HandlerFullyQualifiedName &&
+               RequestFullyQualifiedName == other.RequestFullyQualifiedName &&
+               ResponseFullyQualifiedName == other.ResponseFullyQualifiedName;
     }
 
-    public override bool Equals(object? obj) => Equals(obj as HandlerMetadata);
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as HandlerMetadata);
+    }
 
     public override int GetHashCode()
     {

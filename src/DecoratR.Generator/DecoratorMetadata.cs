@@ -8,26 +8,23 @@ internal sealed class DecoratorMetadata(string decoratorFullyQualifiedName, int 
 
     public bool Equals(DecoratorMetadata? other)
     {
-        if (other is null)
-        {
-            return false;
-        }
+        if (other is null) return false;
 
-        if (ReferenceEquals(this, other))
-        {
-            return true;
-        }
+        if (ReferenceEquals(this, other)) return true;
 
         return DecoratorFullyQualifiedName == other.DecoratorFullyQualifiedName && Order == other.Order;
     }
 
-    public override bool Equals(object? obj) => Equals(obj as DecoratorMetadata);
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as DecoratorMetadata);
+    }
 
     public override int GetHashCode()
     {
         unchecked
         {
-            return DecoratorFullyQualifiedName.GetHashCode() * 397 ^ Order;
+            return (DecoratorFullyQualifiedName.GetHashCode() * 397) ^ Order;
         }
     }
 }

@@ -8,26 +8,23 @@ internal sealed class ReferencedDecoratorInfo(string applyMethodName, int order)
 
     public bool Equals(ReferencedDecoratorInfo? other)
     {
-        if (other is null)
-        {
-            return false;
-        }
+        if (other is null) return false;
 
-        if (ReferenceEquals(this, other))
-        {
-            return true;
-        }
+        if (ReferenceEquals(this, other)) return true;
 
         return ApplyMethodName == other.ApplyMethodName && Order == other.Order;
     }
 
-    public override bool Equals(object? obj) => Equals(obj as ReferencedDecoratorInfo);
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as ReferencedDecoratorInfo);
+    }
 
     public override int GetHashCode()
     {
         unchecked
         {
-            return ApplyMethodName.GetHashCode() * 397 ^ Order;
+            return (ApplyMethodName.GetHashCode() * 397) ^ Order;
         }
     }
 }
