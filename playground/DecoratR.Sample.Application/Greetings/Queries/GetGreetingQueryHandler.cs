@@ -6,7 +6,7 @@ namespace DecoratR.Sample.Application.Greetings.Queries;
 internal sealed class GetGreetingQueryHandler(IGreetingRepository repository)
     : IRequestHandler<GetGreetingQuery, string>
 {
-    public async ValueTask<string> HandleAsync(GetGreetingQuery query, CancellationToken cancellationToken)
+    public async ValueTask<string> HandleAsync(GetGreetingQuery query, CancellationToken cancellationToken = default)
     {
         var existing = await repository.GetByNameAsync(query.Name, cancellationToken);
 

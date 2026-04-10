@@ -57,7 +57,7 @@ internal sealed class GreetCommandHandler(IGreetingRepository repository)
 {
     public async ValueTask<TResponse> HandleAsync(
         GreetCommand command,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         var greeting = Greeting.Create(command.Name);
         await repository.AddAsync(greeting, cancellationToken);
@@ -86,7 +86,7 @@ public sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -113,7 +113,7 @@ public sealed class RequestLoggingDecorator<TRequest, TResponse>(
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Handling {Request}: {Payload}", typeof(TRequest).Name, request);
         var response = await inner.HandleAsync(request, cancellationToken);
@@ -177,7 +177,7 @@ Inject `IRequestHandler<TRequest, TResponse>` anywhere you need it. The containe
 app.MapPost("/greet", async (
     IRequestHandler<GreetCommand, string> handler,
     GreetRequest request,
-    CancellationToken cancellationToken) =>
+    CancellationToken cancellationToken = default) =>
 {
     var result = await handler.HandleAsync(
         new GreetCommand(request.Name), cancellationToken);
@@ -233,7 +233,7 @@ public sealed class ValidationDecorator<TRequest, TResponse>(
     where TRequest : ICommand          // ← only commands
 {
     public async ValueTask<TResponse> HandleAsync(
-        TRequest request, CancellationToken cancellationToken)
+        TRequest request, CancellationToken cancellationToken = default)
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         return await inner.HandleAsync(request, cancellationToken);

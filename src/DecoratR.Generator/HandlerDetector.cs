@@ -18,7 +18,7 @@ internal static class HandlerDetector
     }
 
     private static HandlerMetadata? GetMetadata(
-        GeneratorSyntaxContext context, CancellationToken cancellationToken)
+        GeneratorSyntaxContext context, CancellationToken cancellationToken = default)
     {
         var classDeclaration = (ClassDeclarationSyntax)context.Node;
 

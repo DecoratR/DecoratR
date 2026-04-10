@@ -7,7 +7,7 @@ public class RequestLoggingDecorator<TRequest, TResponse>(
     : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest
 {
-    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         var requestType = typeof(TRequest).Name;
         logger.LogInformation("Handling {RequestType}: {@Request}", requestType, request);

@@ -9,7 +9,7 @@ public sealed class ValidationDecorator<TRequest, TResponse>(
     : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest
 {
-    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         if (validators.Any())
         {

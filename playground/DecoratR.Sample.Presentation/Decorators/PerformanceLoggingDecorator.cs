@@ -9,7 +9,7 @@ public class PerformanceLoggingDecorator<TRequest, TResponse>(
     : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest
 {
-    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         var timestamp = Stopwatch.GetTimestamp();
         var response = await inner.HandleAsync(request, cancellationToken);
