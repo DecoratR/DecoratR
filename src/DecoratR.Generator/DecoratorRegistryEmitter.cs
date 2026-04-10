@@ -23,8 +23,13 @@ internal static class DecoratorRegistryEmitter
             sb.Append("[assembly: global::DecoratR.DecoratRDecoratorRegistration(\"")
                 .Append(assemblyName).Append(".DecoratRDecoratorRegistry.").Append(methodName)
                 .Append("\", ")
-                .Append(decorator.Order)
-                .AppendLine(")]");
+                .Append(decorator.Order);
+
+            var constraintStr = BuildConstraintString(decorator.RequestConstraintTypes);
+            if (constraintStr.Length > 0)
+                sb.Append(", RequestConstraintTypes = \"").Append(constraintStr).Append('"');
+
+            sb.AppendLine(")]");
         }
 
         sb.AppendLine();
@@ -38,10 +43,7 @@ internal static class DecoratorRegistryEmitter
         // Per-decorator public apply methods
         for (var i = 0; i < decorators.Count; i++)
         {
-            if (i > 0)
-            {
-                sb.AppendLine();
-            }
+            if (i > 0) sb.AppendLine();
 
             EmitApplyMethod(sb, decorators[i]);
         }
@@ -67,7 +69,7 @@ internal static class DecoratorRegistryEmitter
         sb.Append("    /// <remarks>Decorator order: <c>").Append(decorator.Order).AppendLine("</c>.</remarks>");
         sb.Append("    public static void ").Append(methodName).AppendLine("<TRequest, TResponse>(");
         sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
-        sb.AppendIndentedLine(2, "where TRequest : global::DecoratR.IRequest");
+        EmitWhereClause(sb, decorator.RequestConstraintTypes);
         sb.AppendIndentedLine(1, "{");
         sb.Append("        DecorateService<TRequest, TResponse, ")
             .Append(decorator.DecoratorFullyQualifiedName)
@@ -75,18 +77,36 @@ internal static class DecoratorRegistryEmitter
         sb.AppendIndentedLine(1, "}");
     }
 
+    private static void EmitWhereClause(StringBuilder sb, EquatableArray<string> constraintTypes)
+    {
+        // Find the most specific constraint (not IRequest itself)
+        string? specificConstraint = null;
+        foreach (var constraint in constraintTypes)
+        {
+            if (constraint == "global::DecoratR.IRequest") continue;
+            specificConstraint = constraint;
+            break;
+        }
+
+        // Use the specific constraint if available, otherwise fall back to IRequest
+        sb.Append("        where TRequest : ")
+            .AppendLine(specificConstraint ?? "global::DecoratR.IRequest");
+    }
+
     internal static void EmitDecorateServiceCore(StringBuilder sb)
     {
         sb.AppendIndentedLine(1, "private static void DecorateService<TRequest, TResponse,");
         sb.AppendIndentedLine(2, "[global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(");
-        sb.AppendIndentedLine(3, "global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(");
+        sb.AppendIndentedLine(3,
+            "global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(");
         sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
         sb.AppendIndentedLine(2, "where TRequest : global::DecoratR.IRequest");
         sb.AppendIndentedLine(2, "where TDecorator : global::DecoratR.IRequestHandler<TRequest, TResponse>");
         sb.AppendIndentedLine(1, "{");
         sb.AppendIndentedLine(2, "var serviceType = typeof(global::DecoratR.IRequestHandler<TRequest, TResponse>);");
         sb.AppendLine();
-        sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor? wrappedDescriptor = null;");
+        sb.AppendIndentedLine(2,
+            "global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor? wrappedDescriptor = null;");
         sb.AppendIndentedLine(2, "int index = -1;");
         sb.AppendIndentedLine(2, "for (int i = 0; i < services.Count; i++)");
         sb.AppendIndentedLine(2, "{");
@@ -105,7 +125,8 @@ internal static class DecoratorRegistryEmitter
         sb.AppendIndentedLine(2, "}");
         sb.AppendLine();
         sb.AppendIndentedLine(2, "services.RemoveAt(index);");
-        sb.AppendIndentedLine(2, "services.Insert(index, global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(");
+        sb.AppendIndentedLine(2,
+            "services.Insert(index, global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(");
         sb.AppendIndentedLine(3, "serviceType,");
         sb.AppendIndentedLine(3, "provider =>");
         sb.AppendIndentedLine(3, "{");
@@ -115,7 +136,8 @@ internal static class DecoratorRegistryEmitter
         sb.AppendIndentedLine(6, "global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance(");
         sb.AppendIndentedLine(7, "provider, wrappedDescriptor.ImplementationType!);");
         sb.AppendLine();
-        sb.AppendIndentedLine(4, "return global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance(");
+        sb.AppendIndentedLine(4,
+            "return global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance(");
         sb.AppendIndentedLine(5, "provider, typeof(TDecorator), innerInstance);");
         sb.AppendIndentedLine(3, "},");
         sb.AppendIndentedLine(3, "wrappedDescriptor.Lifetime));");
@@ -134,6 +156,37 @@ internal static class DecoratorRegistryEmitter
         return string.Concat("Apply", name);
     }
 
-    private static string StripGlobalPrefix(string typeName) =>
-        typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase) ? typeName.Substring("global::".Length) : typeName;
+    internal static string BuildConstraintString(EquatableArray<string> constraintTypes)
+    {
+        if (constraintTypes.Length == 0) return "";
+
+        // Only include non-IRequest constraints in the metadata
+        var hasNonDefault = false;
+        foreach (var c in constraintTypes)
+            if (c != "global::DecoratR.IRequest")
+            {
+                hasNonDefault = true;
+                break;
+            }
+
+        if (!hasNonDefault) return "";
+
+        var sb = new StringBuilder();
+        var first = true;
+        foreach (var constraint in constraintTypes)
+        {
+            if (!first) sb.Append(';');
+            sb.Append(constraint);
+            first = false;
+        }
+
+        return sb.ToString();
+    }
+
+    private static string StripGlobalPrefix(string typeName)
+    {
+        return typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase)
+            ? typeName.Substring("global::".Length)
+            : typeName;
+    }
 }

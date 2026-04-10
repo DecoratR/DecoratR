@@ -7,7 +7,7 @@ namespace DecoratR.Generator;
 [Generator(LanguageNames.CSharp)]
 public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 {
-    private const string HandlerAttributeMetadataName = "DecoratR.GenerateHandlerRegistrationsAttribute";
+    private const string MetadataAttributeMetadataName = "DecoratR.GenerateDecoratRMetadataAttribute";
     private const string FullAttributeMetadataName = "DecoratR.GenerateDecoratRRegistrationsAttribute";
     private const string DecoratorAttributeMetadataName = "DecoratR.DecoratorAttribute";
 
@@ -22,8 +22,8 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     {
         context.RegisterPostInitializationOutput(static ctx =>
         {
-            ctx.AddSource("GenerateHandlerRegistrationsAttribute.g.cs",
-                AttributeEmitter.GenerateHandlerAttribute());
+            ctx.AddSource("GenerateDecoratRMetadataAttribute.g.cs",
+                AttributeEmitter.GenerateMetadataAttribute());
             ctx.AddSource("GenerateDecoratRRegistrationsAttribute.g.cs",
                 AttributeEmitter.GenerateFullAttribute());
             ctx.AddSource("DecoratRHandlerRegistrationAttribute.g.cs",
@@ -39,7 +39,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
     {
         var hasAttribute = context.SyntaxProvider
             .ForAttributeWithMetadataName(
-                HandlerAttributeMetadataName,
+                MetadataAttributeMetadataName,
                 static (_, _) => true,
                 static (_, _) => true)
             .Collect()
@@ -66,10 +66,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
             var (((hasAttr, handlers), decorators), name) = source;
-            if (!hasAttr)
-            {
-                return;
-            }
+            if (!hasAttr) return;
 
             var sortedDecorators = decorators
                 .Distinct()
@@ -116,10 +113,7 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
             var ((((hasAttr, localH), referenced), decorators), name) = source;
-            if (!hasAttr)
-            {
-                return;
-            }
+            if (!hasAttr) return;
 
             var sortedLocalHandlers = localH
                 .Distinct()
@@ -142,19 +136,22 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         ImmutableArray<HandlerMetadata> handlers,
         DecoratorMetadata[] decorators)
     {
-        if (handlers.Length == 0)
+        if (handlers.Length == 0 && decorators.Length == 0)
         {
             spc.ReportDiagnostic(Diagnostic.Create(
-                Diagnostics.NoHandlersFound, Location.None, assemblyName));
+                Diagnostics.NothingFound, Location.None, assemblyName));
             return;
         }
 
-        spc.ReportDiagnostic(Diagnostic.Create(
-            Diagnostics.HandlersDiscovered, Location.None, handlers.Length, assemblyName));
+        if (handlers.Length > 0)
+        {
+            spc.ReportDiagnostic(Diagnostic.Create(
+                Diagnostics.HandlersDiscovered, Location.None, handlers.Length, assemblyName));
 
-        var sorted = handlers.OrderBy(h => h.HandlerFullyQualifiedName).ToList();
-        spc.AddSource("DecoratRHandlerRegistrations.g.cs",
-            HandlerRegistryEmitter.Generate(assemblyName, sorted));
+            var sorted = handlers.OrderBy(h => h.HandlerFullyQualifiedName).ToList();
+            spc.AddSource("DecoratRHandlerRegistrations.g.cs",
+                HandlerRegistryEmitter.Generate(assemblyName, sorted));
+        }
 
         if (decorators.Length > 0)
         {
@@ -174,24 +171,19 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         DecoratorMetadata[] localDecorators)
     {
         var totalHandlerCount = localHandlers.Length + referenced.ServiceTypes.Length;
+        var totalDecoratorCount = localDecorators.Length + referenced.Decorators.Length;
 
-        if (totalHandlerCount == 0)
-        {
+        if (totalHandlerCount == 0 && totalDecoratorCount == 0)
             spc.ReportDiagnostic(Diagnostic.Create(
-                Diagnostics.NoHandlersFound, Location.None, assemblyName));
-        }
-        else
-        {
+                Diagnostics.NothingFound, Location.None, assemblyName));
+
+        if (totalHandlerCount > 0)
             spc.ReportDiagnostic(Diagnostic.Create(
                 Diagnostics.HandlersDiscovered, Location.None, totalHandlerCount, assemblyName));
-        }
 
-        var totalDecoratorCount = localDecorators.Length + referenced.Decorators.Length;
         if (totalDecoratorCount > 0)
-        {
             spc.ReportDiagnostic(Diagnostic.Create(
                 Diagnostics.DecoratorsDiscovered, Location.None, totalDecoratorCount, assemblyName));
-        }
 
         spc.AddSource("DecoratRRegistrations.g.cs",
             FullRegistrationEmitter.Generate(assemblyName, localHandlers,

@@ -17,7 +17,7 @@ public class GeneratorTests
             "System.Threading.Tasks.dll")
     ];
 
-    // ─── Handler-only path ([GenerateHandlerRegistrations]) ─────────────────
+    // ─── Handler-only path ([GenerateDecoratRMetadata]) ─────────────────
 
     [Fact]
     public void NoAttribute_ProducesOnlyAttributeSources()
@@ -29,7 +29,7 @@ public class GeneratorTests
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -38,7 +38,7 @@ public class GeneratorTests
 
         // 5 attribute files are emitted regardless, but no registrations
         Assert.Equal(5, generatedTrees.Length);
-        Assert.Contains(generatedTrees, t => t.Contains("GenerateHandlerRegistrationsAttribute"));
+        Assert.Contains(generatedTrees, t => t.Contains("GenerateDecoratRMetadataAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("GenerateDecoratRRegistrationsAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRHandlerRegistrationAttribute"));
         Assert.Contains(generatedTrees, t => t.Contains("DecoratRHandlerServiceTypeAttribute"));
@@ -56,20 +56,21 @@ public class GeneratorTests
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        var handlerAttribute = generatedTrees.First(t => t.Contains("GenerateHandlerRegistrationsAttribute"));
-        Assert.Contains("Generates handler discovery metadata for the current assembly.", handlerAttribute);
+        var handlerAttribute = generatedTrees.First(t => t.Contains("GenerateDecoratRMetadataAttribute"));
+        Assert.Contains("Generates handler and decorator metadata for the current assembly.", handlerAttribute);
         Assert.Contains("class library that defines request handlers or decorators", handlerAttribute);
         Assert.Contains("GenerateDecoratRRegistrationsAttribute", handlerAttribute);
 
         var fullAttribute = generatedTrees.First(t => t.Contains("class GenerateDecoratRRegistrationsAttribute"));
-        Assert.Contains("Generates the <c>AddDecoratR()</c> registration entry point for the current composition root.", fullAttribute);
+        Assert.Contains("Generates the <c>AddDecoratR()</c> registration entry point for the current composition root.",
+            fullAttribute);
         Assert.Contains("Apply this to the host or startup assembly.", fullAttribute);
         Assert.Contains("registers handlers and applies decorators in pipeline order.", fullAttribute);
     }
@@ -80,13 +81,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -107,13 +108,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestQuery(string Id) : IRequest;
 
                      public sealed class TestQueryHandler : IRequestHandler<TestQuery, string>
                      {
-                         public ValueTask<string> HandleAsync(TestQuery request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestQuery request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Result");
                      }
                      """;
@@ -130,20 +131,20 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record Command1(string Name) : IRequest;
                      public sealed record Query1(string Id) : IRequest;
 
                      public sealed class Command1Handler : IRequestHandler<Command1, string>
                      {
-                         public ValueTask<string> HandleAsync(Command1 request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(Command1 request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
 
                      public sealed class Query1Handler : IRequestHandler<Query1, int>
                      {
-                         public ValueTask<int> HandleAsync(Query1 request, CancellationToken cancellationToken = default)
+                         public ValueTask<int> HandleAsync(Query1 request, CancellationToken cancellationToken)
                              => ValueTask.FromResult(42);
                      }
                      """;
@@ -161,13 +162,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public abstract class AbstractHandler : IRequestHandler<TestCommand, string>
                      {
-                         public abstract ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default);
+                         public abstract ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken);
                      }
                      """;
 
@@ -182,12 +183,12 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public class GenericHandler<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
                          where TRequest : IRequest
                      {
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                              => throw new System.NotImplementedException();
                      }
                      """;
@@ -203,13 +204,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      internal sealed class InternalHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -226,7 +227,7 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public class NotAHandler { }
                      """;
@@ -243,13 +244,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -265,13 +266,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -290,13 +291,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -316,13 +317,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -339,13 +340,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -363,13 +364,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -388,13 +389,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      internal sealed class InternalHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -411,13 +412,13 @@ public class GeneratorTests
         var source = """
                      using DecoratR;
 
-                     [assembly: DecoratR.GenerateHandlerRegistrations]
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
 
                      public sealed record TestCommand(string Name) : IRequest;
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -443,7 +444,7 @@ public class GeneratorTests
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
 
@@ -453,7 +454,7 @@ public class GeneratorTests
                      {
                          private readonly IRequestHandler<TRequest, TResponse> _inner;
                          public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                              => _inner.HandleAsync(request, cancellationToken);
                      }
                      """;
@@ -478,7 +479,7 @@ public class GeneratorTests
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
 
@@ -488,7 +489,7 @@ public class GeneratorTests
                      {
                          private readonly IRequestHandler<TRequest, TResponse> _inner;
                          public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                              => _inner.HandleAsync(request, cancellationToken);
                      }
                      """;
@@ -519,7 +520,7 @@ public class GeneratorTests
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
 
@@ -529,7 +530,7 @@ public class GeneratorTests
                      {
                          private readonly IRequestHandler<TRequest, TResponse> _inner;
                          public ADecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                              => _inner.HandleAsync(request, cancellationToken);
                      }
 
@@ -539,7 +540,7 @@ public class GeneratorTests
                      {
                          private readonly IRequestHandler<TRequest, TResponse> _inner;
                          public BDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                              => _inner.HandleAsync(request, cancellationToken);
                      }
                      """;
@@ -563,7 +564,7 @@ public class GeneratorTests
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
 
@@ -573,7 +574,7 @@ public class GeneratorTests
                      {
                          private readonly IRequestHandler<TRequest, TResponse> _inner;
                          public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                              => _inner.HandleAsync(request, cancellationToken);
                      }
                      """;
@@ -595,7 +596,7 @@ public class GeneratorTests
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
 
@@ -605,7 +606,7 @@ public class GeneratorTests
                      {
                          private readonly IRequestHandler<TRequest, TResponse> _inner;
                          public InnerDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                              => _inner.HandleAsync(request, cancellationToken);
                      }
 
@@ -615,7 +616,7 @@ public class GeneratorTests
                      {
                          private readonly IRequestHandler<TRequest, TResponse> _inner;
                          public OuterDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                              => _inner.HandleAsync(request, cancellationToken);
                      }
                      """;
@@ -630,10 +631,12 @@ public class GeneratorTests
         var outerIdx = registrations.IndexOf("OuterDecorator", StringComparison.Ordinal);
 
         // In the Decorate calls section, InnerDecorator should appear before OuterDecorator
-        var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         var innerDecorateIdx = decorateSection.IndexOf("InnerDecorator", StringComparison.Ordinal);
         var outerDecorateIdx = decorateSection.IndexOf("OuterDecorator", StringComparison.Ordinal);
-        Assert.True(innerDecorateIdx < outerDecorateIdx, "InnerDecorator (Order=2) should be applied first (closer to handler)");
+        Assert.True(innerDecorateIdx < outerDecorateIdx,
+            "InnerDecorator (Order=2) should be applied first (closer to handler)");
     }
 
     // ─── Full path: Local handlers have "Register local handlers" comment ────
@@ -650,7 +653,7 @@ public class GeneratorTests
 
                      public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                      {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                              => ValueTask.FromResult("Hello");
                      }
                      """;
@@ -671,13 +674,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record TestCommand(string Name) : IRequest;
 
             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
             {
-                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Hello");
             }
             """,
@@ -699,13 +702,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record TestCommand(string Name) : IRequest;
 
             internal sealed class InternalHandler : IRequestHandler<TestCommand, string>
             {
-                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Hello");
             }
             """,
@@ -730,13 +733,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record TestCommand(string Name) : IRequest;
 
             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
             {
-                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Hello");
             }
             """,
@@ -751,7 +754,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """);
@@ -771,13 +774,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record RemoteCommand(string Name) : IRequest;
 
             public sealed class RemoteHandler : IRequestHandler<RemoteCommand, string>
             {
-                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Remote");
             }
             """,
@@ -790,7 +793,7 @@ public class GeneratorTests
 
             public sealed class LocalHandler : IRequestHandler<LocalCommand, string>
             {
-                public ValueTask<string> HandleAsync(LocalCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(LocalCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Local");
             }
             """);
@@ -814,13 +817,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record TestCommand(string Name) : IRequest;
 
             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
             {
-                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Hello");
             }
 
@@ -830,7 +833,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """,
@@ -853,13 +856,13 @@ public class GeneratorTests
         var handlerSource = """
                             using DecoratR;
 
-                            [assembly: DecoratR.GenerateHandlerRegistrations]
+                            [assembly: DecoratR.GenerateDecoratRMetadata]
 
                             public sealed record TestCommand(string Name) : IRequest;
 
                             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                             {
-                                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                                     => ValueTask.FromResult("Hello");
                             }
 
@@ -869,7 +872,7 @@ public class GeneratorTests
                             {
                                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                                 public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                                     => _inner.HandleAsync(request, cancellationToken);
                             }
                             """;
@@ -889,13 +892,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record TestCommand(string Name) : IRequest;
 
             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
             {
-                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Hello");
             }
 
@@ -905,7 +908,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """,
@@ -920,7 +923,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public LocalDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """);
@@ -935,10 +938,12 @@ public class GeneratorTests
 
         // LocalDecorator (Order=2, innermost) should appear before AppDecorator (Order=1, outermost)
         // in the DecorateService calls because innermost decorators are registered first
-        var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         var localIdx = decorateSection.IndexOf("LocalDecorator", StringComparison.Ordinal);
         var appIdx = decorateSection.IndexOf("ApplyAppDecorator", StringComparison.Ordinal);
-        Assert.True(localIdx < appIdx, "LocalDecorator (Order=2, innermost) should be registered before AppDecorator (Order=1, outermost)");
+        Assert.True(localIdx < appIdx,
+            "LocalDecorator (Order=2, innermost) should be registered before AppDecorator (Order=1, outermost)");
     }
 
     [Fact]
@@ -948,13 +953,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record RemoteCommand(string Name) : IRequest;
 
             public sealed class RemoteHandler : IRequestHandler<RemoteCommand, string>
             {
-                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Remote");
             }
 
@@ -964,7 +969,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """,
@@ -977,7 +982,7 @@ public class GeneratorTests
 
             public sealed class LocalHandler : IRequestHandler<LocalCommand, string>
             {
-                public ValueTask<string> HandleAsync(LocalCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(LocalCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Local");
             }
             """);
@@ -987,7 +992,8 @@ public class GeneratorTests
         // Referenced decorator should be applied to BOTH local and remote handlers via apply method
         Assert.Contains("ApplyAppDecorator", registrations);
 
-        var decorateSection = registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
         // ApplyAppDecorator should be called with both LocalCommand and RemoteCommand type args
         Assert.Contains("LocalCommand", decorateSection);
         Assert.Contains("RemoteCommand", decorateSection);
@@ -1000,13 +1006,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record TestCommand(string Name) : IRequest;
 
             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
             {
-                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Hello");
             }
 
@@ -1016,7 +1022,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """,
@@ -1031,7 +1037,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public LocalDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """);
@@ -1049,13 +1055,13 @@ public class GeneratorTests
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record TestCommand(string Name) : IRequest;
 
             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
             {
-                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Hello");
             }
 
@@ -1065,7 +1071,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """,
@@ -1087,13 +1093,13 @@ public class GeneratorTests
         var handlerSource = """
                             using DecoratR;
 
-                            [assembly: DecoratR.GenerateHandlerRegistrations]
+                            [assembly: DecoratR.GenerateDecoratRMetadata]
 
                             public sealed record TestCommand(string Name) : IRequest;
 
                             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                             {
-                                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                                     => ValueTask.FromResult("Hello");
                             }
                             """;
@@ -1108,19 +1114,93 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void HandlerOnly_DecoratorOnlyAssembly_EmitsDecoratorRegistrations()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRMetadata]
+
+                     [Decorator(Order = 3)]
+                     public class FooDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public FooDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (diagnostics, generatedTrees) = RunGenerator(source, "DecoratorLib");
+
+        // Decorators present, so DCTR001 should NOT be reported
+        Assert.DoesNotContain(diagnostics, d => d.Id == "DCTR001");
+        // DCTR003 should be reported for the decorator
+        Assert.Contains(diagnostics, d => d.Id == "DCTR003");
+        // No handler registry should be generated
+        Assert.DoesNotContain(generatedTrees, t => t.Contains("DecoratRHandlerRegistry"));
+        // Decorator registry SHOULD still be generated
+        var decoratorRegistry = generatedTrees.First(t => t.Contains("DecoratRDecoratorRegistry"));
+        Assert.Contains("ApplyFooDecorator", decoratorRegistry);
+        Assert.Contains("[assembly: global::DecoratR.DecoratRDecoratorRegistration(", decoratorRegistry);
+        Assert.Contains(", 3)]", decoratorRegistry);
+    }
+
+    [Fact]
+    public void TwoStage_DecoratorOnlyLib_DiscoveredByCompositionRoot()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+            [Decorator(Order = 2)]
+            public class FooDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public FooDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+            public sealed record TestCommand(string Name) : IRequest;
+
+            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("Hello");
+            }
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+
+        // Cross-assembly decorator from decorator-only lib should be applied
+        Assert.Contains("ApplyFooDecorator", registrations);
+        Assert.Contains("TestCommand", registrations);
+    }
+
+    [Fact]
     public void TwoStage_InternalDecorator_DiscoveredViaApplyMethod()
     {
         var (_, generatedTrees) = RunTwoStageGenerator(
             """
             using DecoratR;
 
-            [assembly: DecoratR.GenerateHandlerRegistrations]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
             public sealed record TestCommand(string Name) : IRequest;
 
             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
             {
-                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                     => ValueTask.FromResult("Hello");
             }
 
@@ -1130,7 +1210,7 @@ public class GeneratorTests
             {
                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                 public InternalDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                     => _inner.HandleAsync(request, cancellationToken);
             }
             """,
@@ -1154,13 +1234,13 @@ public class GeneratorTests
         var handlerSource = """
                             using DecoratR;
 
-                            [assembly: DecoratR.GenerateHandlerRegistrations]
+                            [assembly: DecoratR.GenerateDecoratRMetadata]
 
                             public sealed record TestCommand(string Name) : IRequest;
 
                             public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
                             {
-                                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
                                     => ValueTask.FromResult("Hello");
                             }
 
@@ -1170,7 +1250,7 @@ public class GeneratorTests
                             {
                                 private readonly IRequestHandler<TRequest, TResponse> _inner;
                                 public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
-                                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
                                     => _inner.HandleAsync(request, cancellationToken);
                             }
                             """;
@@ -1189,7 +1269,384 @@ public class GeneratorTests
         // Should reference the decorator type internally
         Assert.Contains("LoggingDecorator<TRequest, TResponse>", decoratorRegistry);
         // Apply method should call DecorateService with the correct decorator type
-        Assert.Contains("DecorateService<TRequest, TResponse, global::LoggingDecorator<TRequest, TResponse>>(services)", decoratorRegistry);
+        Assert.Contains("DecorateService<TRequest, TResponse, global::LoggingDecorator<TRequest, TResponse>>(services)",
+            decoratorRegistry);
+    }
+
+    // ─── Constraint-based decorator filtering ─────────────────────────────────
+
+    [Fact]
+    public void FullAttribute_ConstrainedDecorator_OnlyAppliedToMatchingHandlers()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public interface ICommand : IRequest;
+                     public interface IQuery : IRequest;
+
+                     public sealed record CreateUserCommand(string Name) : ICommand;
+                     public sealed record GetUsersQuery : IQuery;
+
+                     public sealed class CreateUserHandler : IRequestHandler<CreateUserCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(CreateUserCommand request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("created");
+                     }
+
+                     public sealed class GetUsersHandler : IRequestHandler<GetUsersQuery, string>
+                     {
+                         public ValueTask<string> HandleAsync(GetUsersQuery request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("users");
+                     }
+
+                     [Decorator(Order = 1)]
+                     public class CommandOnlyDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : ICommand
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public CommandOnlyDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // CommandOnlyDecorator should be applied to CreateUserCommand
+        Assert.Contains("CreateUserCommand", decorateSection);
+        Assert.Contains("CommandOnlyDecorator", decorateSection);
+
+        // CommandOnlyDecorator should NOT be applied to GetUsersQuery
+        Assert.DoesNotContain("GetUsersQuery", decorateSection);
+    }
+
+    [Fact]
+    public void FullAttribute_UnconstrainedDecorator_AppliedToAllHandlers()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public interface ICommand : IRequest;
+                     public interface IQuery : IRequest;
+
+                     public sealed record CreateUserCommand(string Name) : ICommand;
+                     public sealed record GetUsersQuery : IQuery;
+
+                     public sealed class CreateUserHandler : IRequestHandler<CreateUserCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(CreateUserCommand request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("created");
+                     }
+
+                     public sealed class GetUsersHandler : IRequestHandler<GetUsersQuery, string>
+                     {
+                         public ValueTask<string> HandleAsync(GetUsersQuery request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("users");
+                     }
+
+                     [Decorator(Order = 1)]
+                     public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // Unconstrained decorator (where TRequest : IRequest) should apply to both
+        Assert.Contains("CreateUserCommand", decorateSection);
+        Assert.Contains("GetUsersQuery", decorateSection);
+    }
+
+    [Fact]
+    public void FullAttribute_MixedConstrainedAndUnconstrainedDecorators()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public interface ICommand : IRequest;
+                     public interface IQuery : IRequest;
+
+                     public sealed record CreateUserCommand(string Name) : ICommand;
+                     public sealed record GetUsersQuery : IQuery;
+
+                     public sealed class CreateUserHandler : IRequestHandler<CreateUserCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(CreateUserCommand request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("created");
+                     }
+
+                     public sealed class GetUsersHandler : IRequestHandler<GetUsersQuery, string>
+                     {
+                         public ValueTask<string> HandleAsync(GetUsersQuery request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("users");
+                     }
+
+                     [Decorator(Order = 1)]
+                     public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+
+                     [Decorator(Order = 2)]
+                     public class ValidationDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : ICommand
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public ValidationDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // LoggingDecorator should wrap both
+        var loggingCount = CountOccurrences(decorateSection, "LoggingDecorator");
+        Assert.Equal(2, loggingCount);
+
+        // ValidationDecorator should only wrap CreateUserCommand
+        var validationCount = CountOccurrences(decorateSection, "ValidationDecorator");
+        Assert.Equal(1, validationCount);
+        Assert.Contains("ValidationDecorator<global::CreateUserCommand", decorateSection);
+    }
+
+    [Fact]
+    public void TwoStage_ConstrainedDecoratorInLibrary_OnlyAppliedToMatchingHandlers()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+            public interface ICommand : IRequest;
+            public interface IQuery : IRequest;
+
+            public sealed record RemoteCommand(string Name) : ICommand;
+            public sealed record RemoteQuery : IQuery;
+
+            public sealed class RemoteCommandHandler : IRequestHandler<RemoteCommand, string>
+            {
+                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("handled");
+            }
+
+            public sealed class RemoteQueryHandler : IRequestHandler<RemoteQuery, string>
+            {
+                public ValueTask<string> HandleAsync(RemoteQuery request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("queried");
+            }
+
+            [Decorator(Order = 1)]
+            public class CommandDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : ICommand
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public CommandDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // CommandDecorator should only be applied to RemoteCommand, not RemoteQuery
+        Assert.Contains("RemoteCommand", decorateSection);
+        Assert.DoesNotContain("RemoteQuery", decorateSection);
+    }
+
+    [Fact]
+    public void TwoStage_ConstrainedDecoratorInLibrary_ApplyMethodHasCorrectConstraint()
+    {
+        var handlerSource = """
+                            using DecoratR;
+
+                            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+                            public interface ICommand : IRequest;
+
+                            public sealed record TestCommand(string Name) : ICommand;
+
+                            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                            {
+                                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
+                                    => ValueTask.FromResult("Hello");
+                            }
+
+                            [Decorator(Order = 1)]
+                            public class CommandDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                                where TRequest : ICommand
+                            {
+                                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                                public CommandDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                                    => _inner.HandleAsync(request, cancellationToken);
+                            }
+                            """;
+
+        var (_, generatedTrees) = RunGenerator(handlerSource, "HandlerLib");
+
+        var decoratorRegistry = generatedTrees.First(t => t.Contains("DecoratRDecoratorRegistry"));
+
+        // Apply method should have the ICommand constraint, not IRequest
+        var applyMethod = decoratorRegistry.Split("public static void ApplyCommandDecorator")[1]
+            .Split("}")[0];
+        Assert.Contains("where TRequest : global::ICommand", applyMethod);
+        Assert.DoesNotContain("where TRequest : global::DecoratR.IRequest", applyMethod);
+
+        // Assembly attribute should include constraint info
+        Assert.Contains("RequestConstraintTypes", decoratorRegistry);
+        Assert.Contains("global::ICommand", decoratorRegistry);
+    }
+
+    [Fact]
+    public void FullAttribute_RequestWithMultipleMarkerInterfaces_MatchedByAllApplicableDecorators()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public interface ICommand : IRequest;
+                     public interface ILoggable;
+
+                     public sealed record LoggableCommand(string Name) : ICommand, ILoggable;
+
+                     public sealed class LoggableCommandHandler : IRequestHandler<LoggableCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(LoggableCommand request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("handled");
+                     }
+
+                     [Decorator(Order = 1)]
+                     public class CommandDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : ICommand
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public CommandDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+
+                     [Decorator(Order = 2)]
+                     public class LoggableDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : ILoggable
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggableDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // Both decorators should be applied to LoggableCommand (implements both ICommand and ILoggable)
+        Assert.Contains("CommandDecorator", decorateSection);
+        Assert.Contains("LoggableDecorator", decorateSection);
+    }
+
+    [Fact]
+    public void TwoStage_ConstrainedDecoratorWithLocalHandler_CorrectFiltering()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+            public interface ICommand : IRequest;
+
+            public sealed record RemoteCommand(string Name) : ICommand;
+
+            public sealed class RemoteCommandHandler : IRequestHandler<RemoteCommand, string>
+            {
+                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("remote");
+            }
+
+            [Decorator(Order = 1)]
+            public class CommandDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : ICommand
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public CommandDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+            public sealed record LocalQuery : IRequest;
+
+            public sealed class LocalQueryHandler : IRequestHandler<LocalQuery, string>
+            {
+                public ValueTask<string> HandleAsync(LocalQuery request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("local");
+            }
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // CommandDecorator should be applied to RemoteCommand (ICommand) but NOT LocalQuery (IRequest only)
+        Assert.Contains("RemoteCommand", decorateSection);
+        Assert.DoesNotContain("LocalQuery", decorateSection);
+    }
+
+    private static int CountOccurrences(string text, string pattern)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(pattern, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += pattern.Length;
+        }
+
+        return count;
     }
 
     // ─── Helper methods ─────────────────────────────────────────────────────
@@ -1226,7 +1683,7 @@ public class GeneratorTests
 
     /// <summary>
     /// Runs a two-stage generator test:
-    /// 1. Compiles the handler project with [GenerateHandlerRegistrations], runs the generator
+    /// 1. Compiles the handler project with [GenerateDecoratRMetadata], runs the generator
     /// 2. Compiles the composition root referencing the handler assembly, runs the generator
     /// Returns the composition root's generated output.
     /// </summary>

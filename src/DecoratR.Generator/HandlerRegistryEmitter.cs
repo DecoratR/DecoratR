@@ -28,7 +28,13 @@ internal static class HandlerRegistryEmitter
                 .Append(handler.RequestFullyQualifiedName)
                 .Append("\", \"")
                 .Append(handler.ResponseFullyQualifiedName)
-                .AppendLine("\")]");
+                .Append('"');
+
+            var hierarchyStr = BuildHierarchyString(handler.RequestTypeHierarchy);
+            if (hierarchyStr.Length > 0)
+                sb.Append(", RequestTypeHierarchy = \"").Append(hierarchyStr).Append('"');
+
+            sb.AppendLine(")]");
         }
 
         sb.AppendLine();
@@ -41,11 +47,11 @@ internal static class HandlerRegistryEmitter
 
         // XML summary
         sb.AppendIndentedLine(1, "/// <summary>");
-        sb.Append("    /// ").Append(handlers.Count).Append(" handler(s) discovered in <c>").Append(assemblyName).AppendLine("</c>.");
+        sb.Append("    /// ").Append(handlers.Count).Append(" handler(s) discovered in <c>").Append(assemblyName)
+            .AppendLine("</c>.");
         sb.AppendIndentedLine(1, "/// <list type=\"bullet\">");
 
         foreach (var handler in handlers)
-        {
             sb.Append("    /// <item><description><c>")
                 .Append(StripGlobalPrefix(handler.HandlerFullyQualifiedName))
                 .Append("</c> handles <c>IRequestHandler&lt;")
@@ -53,7 +59,6 @@ internal static class HandlerRegistryEmitter
                 .Append(", ")
                 .Append(StripGlobalPrefix(handler.ResponseFullyQualifiedName))
                 .AppendLine("&gt;</c></description></item>");
-        }
 
         sb.AppendIndentedLine(1, "/// </list>");
         sb.AppendIndentedLine(1, "/// </summary>");
@@ -62,7 +67,6 @@ internal static class HandlerRegistryEmitter
         sb.AppendIndentedLine(1, "[");
 
         foreach (var handler in handlers)
-        {
             sb.Append("        new(typeof(global::DecoratR.IRequestHandler<")
                 .Append(handler.RequestFullyQualifiedName)
                 .Append(", ")
@@ -70,18 +74,38 @@ internal static class HandlerRegistryEmitter
                 .Append(">), typeof(")
                 .Append(handler.HandlerFullyQualifiedName)
                 .AppendLine(")),");
-        }
 
         sb.AppendIndentedLine(1, "];");
         sb.AppendLine();
         sb.AppendIndentedLine(1, "public sealed record HandlerRegistration(");
         sb.AppendIndentedLine(2, "global::System.Type ServiceType,");
-        sb.AppendIndentedLine(2, "[property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] global::System.Type ImplementationType);");
+        sb.AppendIndentedLine(2,
+            "[property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] global::System.Type ImplementationType);");
         sb.AppendLine("}");
 
         return sb.ToString();
     }
 
-    private static string StripGlobalPrefix(string typeName) =>
-        typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase) ? typeName.Substring("global::".Length) : typeName;
+    private static string BuildHierarchyString(EquatableArray<string> hierarchy)
+    {
+        if (hierarchy.Length == 0) return "";
+
+        var sb = new StringBuilder();
+        var first = true;
+        foreach (var type in hierarchy)
+        {
+            if (!first) sb.Append(';');
+            sb.Append(type);
+            first = false;
+        }
+
+        return sb.ToString();
+    }
+
+    private static string StripGlobalPrefix(string typeName)
+    {
+        return typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase)
+            ? typeName.Substring("global::".Length)
+            : typeName;
+    }
 }

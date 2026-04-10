@@ -5,7 +5,7 @@
     <AnalysisLevel>latest-Recommended</AnalysisLevel>
   </PropertyGroup>
 
-   <PropertyGroup>
+  <PropertyGroup>
     <Authors>DecoratR</Authors>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/decoratr/decoratr</RepositoryUrl>

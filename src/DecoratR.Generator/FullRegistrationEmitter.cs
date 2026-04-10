@@ -38,7 +38,8 @@ internal static class FullRegistrationEmitter
             .AppendLine(" decorator(s) discovered across the compilation.");
         sb.AppendIndentedLine(1, "/// </summary>");
 
-        sb.AppendIndentedLine(1, "public static global::Microsoft.Extensions.DependencyInjection.IServiceCollection AddDecoratR(");
+        sb.AppendIndentedLine(1,
+            "public static global::Microsoft.Extensions.DependencyInjection.IServiceCollection AddDecoratR(");
         sb.AppendIndentedLine(2, "this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
         sb.AppendIndentedLine(1, "{");
 
@@ -64,10 +65,7 @@ internal static class FullRegistrationEmitter
     private static void EmitReferencedHandlerRegistrations(
         StringBuilder sb, ImmutableArray<string> registryClassNames)
     {
-        if (registryClassNames.Length == 0)
-        {
-            return;
-        }
+        if (registryClassNames.Length == 0) return;
 
         sb.AppendIndentedLine(2, "// Register handlers from referenced assemblies");
 
@@ -75,7 +73,8 @@ internal static class FullRegistrationEmitter
         {
             sb.Append("        foreach (var handler in global::").Append(registryClassName).AppendLine(".Handlers)");
             sb.AppendIndentedLine(2, "{");
-            sb.AppendIndentedLine(3, "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
+            sb.AppendIndentedLine(3,
+                "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
             sb.AppendIndentedLine(4, "handler.ServiceType,");
             sb.AppendIndentedLine(4, "handler.ImplementationType,");
             sb.AppendIndentedLine(4, "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient));");
@@ -86,21 +85,16 @@ internal static class FullRegistrationEmitter
     private static void EmitLocalHandlerRegistrations(
         StringBuilder sb, IReadOnlyList<HandlerMetadata> localHandlers, bool hasReferenced)
     {
-        if (localHandlers.Count == 0)
-        {
-            return;
-        }
+        if (localHandlers.Count == 0) return;
 
-        if (hasReferenced)
-        {
-            sb.AppendLine();
-        }
+        if (hasReferenced) sb.AppendLine();
 
         sb.AppendIndentedLine(2, "// Register local handlers");
 
         foreach (var handler in localHandlers)
         {
-            sb.AppendIndentedLine(2, "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
+            sb.AppendIndentedLine(2,
+                "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
             sb.Append("            typeof(global::DecoratR.IRequestHandler<")
                 .Append(handler.RequestFullyQualifiedName)
                 .Append(", ")
@@ -118,28 +112,28 @@ internal static class FullRegistrationEmitter
         IReadOnlyList<DecoratorMetadata> localDecorators,
         ImmutableArray<ReferencedDecoratorInfo> referencedDecorators)
     {
-        if (localDecorators.Count == 0 && referencedDecorators.Length == 0)
-        {
-            return;
-        }
+        if (localDecorators.Count == 0 && referencedDecorators.Length == 0) return;
 
-        var serviceTypeSet = new HashSet<(string Request, string Response)>();
+        // Build service type list with hierarchy lookup
+        var serviceTypeMap = new Dictionary<(string Request, string Response), HashSet<string>>();
+
         foreach (var h in localHandlers)
         {
-            serviceTypeSet.Add((h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName));
+            var key = (h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName);
+            if (!serviceTypeMap.ContainsKey(key))
+                serviceTypeMap[key] = BuildHierarchySet(h.RequestTypeHierarchy);
         }
 
         foreach (var h in referencedServiceTypes)
         {
-            serviceTypeSet.Add((h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName));
+            var key = (h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName);
+            if (!serviceTypeMap.ContainsKey(key))
+                serviceTypeMap[key] = BuildHierarchySet(h.RequestTypeHierarchy);
         }
 
-        if (serviceTypeSet.Count == 0)
-        {
-            return;
-        }
+        if (serviceTypeMap.Count == 0) return;
 
-        var allServiceTypes = new List<(string Request, string Response)>(serviceTypeSet);
+        var allServiceTypes = new List<(string Request, string Response)>(serviceTypeMap.Keys);
         allServiceTypes.Sort((a, b) =>
         {
             var cmp = string.Compare(a.Request, b.Request, StringComparison.Ordinal);
@@ -147,16 +141,13 @@ internal static class FullRegistrationEmitter
         });
 
         // Merge local and referenced decorators into a single ordered list
-        var allDecorators = new List<(int Order, string Name, bool IsLocal)>();
+        var allDecorators = new List<(int Order, string Name, bool IsLocal, EquatableArray<string> Constraints)>();
+
         foreach (var d in localDecorators)
-        {
-            allDecorators.Add((d.Order, d.DecoratorFullyQualifiedName, true));
-        }
+            allDecorators.Add((d.Order, d.DecoratorFullyQualifiedName, true, d.RequestConstraintTypes));
 
         foreach (var d in referencedDecorators)
-        {
-            allDecorators.Add((d.Order, d.ApplyMethodName, false));
-        }
+            allDecorators.Add((d.Order, d.ApplyMethodName, false, d.RequestConstraintTypes));
 
         allDecorators.Sort((a, b) =>
         {
@@ -169,27 +160,51 @@ internal static class FullRegistrationEmitter
 
         foreach (var (requestType, responseType) in allServiceTypes)
         {
+            var hierarchy = serviceTypeMap[(requestType, responseType)];
+
             for (var i = allDecorators.Count - 1; i >= 0; i--)
             {
-                var (_, name, isLocal) = allDecorators[i];
+                var (_, name, isLocal, constraints) = allDecorators[i];
+
+                if (!SatisfiesConstraints(hierarchy, constraints))
+                    continue;
 
                 if (isLocal)
-                {
                     // Local decorator: generated DecorateService<> call
                     sb.Append("        DecorateService<")
                         .Append(requestType).Append(", ")
                         .Append(responseType).Append(", ")
                         .Append(name).Append('<').Append(requestType).Append(", ").Append(responseType)
                         .AppendLine(">>(services);");
-                }
                 else
-                {
                     // Referenced decorator: call the generated apply method
                     sb.Append("        global::").Append(name)
                         .Append('<').Append(requestType).Append(", ").Append(responseType)
                         .AppendLine(">(services);");
-                }
             }
         }
+    }
+
+    private static HashSet<string> BuildHierarchySet(EquatableArray<string> hierarchy)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var type in hierarchy) set.Add(type);
+        return set;
+    }
+
+    private static bool SatisfiesConstraints(HashSet<string> requestHierarchy, EquatableArray<string> constraints)
+    {
+        if (constraints.Length == 0) return true;
+
+        foreach (var constraint in constraints)
+        {
+            // IRequest is always satisfied by any request type
+            if (constraint == "global::DecoratR.IRequest") continue;
+
+            if (!requestHierarchy.Contains(constraint))
+                return false;
+        }
+
+        return true;
     }
 }

@@ -1,25 +1,27 @@
 using System.Diagnostics;
 using DecoratR;
+using Examples.CleanArchitecture.Application.Abstractions;
+using Microsoft.Extensions.Logging;
 
-namespace Examples.CleanArchitecture.Api.Decorators;
+namespace Examples.CleanArchitecture.Application;
 
 [Decorator(Order = 2)]
-internal sealed class PerformanceLoggingDecorator<TRequest, TResponse>(
+internal sealed class QueryPerformanceLoggingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
-    ILogger<PerformanceLoggingDecorator<TRequest, TResponse>> logger)
+    ILogger<QueryPerformanceLoggingDecorator<TRequest, TResponse>> logger)
     : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest
+    where TRequest : IQuery
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var timestamp = Stopwatch.GetTimestamp();
         var response = await inner.HandleAsync(request, cancellationToken);
         var time = Stopwatch.GetElapsedTime(timestamp);
 
         logger.LogInformation(
-            "Handled {Request} in {ElapsedMs}ms",
+            "Handled query {Request} in {ElapsedMs}ms",
             typeof(TRequest).Name,
             time.TotalMilliseconds);
 

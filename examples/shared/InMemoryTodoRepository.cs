@@ -16,19 +16,16 @@ public sealed class InMemoryTodoRepository : ITodoRepository
                 f.Random.Bool(),
                 f.Date.Recent(30).ToUniversalTime()));
 
-        foreach (var todo in faker.Generate(10))
-        {
-            _todos[todo.Id] = todo;
-        }
+        foreach (var todo in faker.Generate(10)) _todos[todo.Id] = todo;
     }
 
-    public ValueTask<IReadOnlyList<Todo>> GetAllAsync(CancellationToken cancellationToken = default)
+    public ValueTask<IReadOnlyList<Todo>> GetAllAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<Todo> todos = [.. _todos.Values.OrderByDescending(t => t.CreatedAt)];
         return ValueTask.FromResult(todos);
     }
 
-    public ValueTask AddAsync(Todo todo, CancellationToken cancellationToken = default)
+    public ValueTask AddAsync(Todo todo, CancellationToken cancellationToken)
     {
         _todos[todo.Id] = todo;
         return ValueTask.CompletedTask;

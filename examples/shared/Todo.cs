@@ -18,9 +18,13 @@ public sealed class Todo
 
     public DateTime CreatedAt { get; private set; }
 
-    public static Todo Create(string title) =>
-        new(Guid.NewGuid(), title, false, DateTime.UtcNow);
+    public static Todo Create(string title)
+    {
+        return new Todo(Guid.NewGuid(), title, false, DateTime.UtcNow);
+    }
 
-    internal static Todo Create(Guid id, string title, bool isCompleted, DateTime createdAt) =>
-        new(id, title, isCompleted, createdAt);
+    internal static Todo Create(Guid id, string title, bool isCompleted, DateTime createdAt)
+    {
+        return new Todo(id, title, isCompleted, createdAt);
+    }
 }

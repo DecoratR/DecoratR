@@ -8,6 +8,8 @@ internal sealed class GetTodosQueryHandler(ITodoRepository repository)
 {
     public async ValueTask<IReadOnlyList<Todo>> HandleAsync(
         GetTodosQuery request,
-        CancellationToken cancellationToken = default) =>
-        await repository.GetAllAsync(cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        return await repository.GetAllAsync(cancellationToken);
+    }
 }

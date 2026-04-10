@@ -8,7 +8,7 @@ internal sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
     : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest
 {
-    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
     {
         try
         {

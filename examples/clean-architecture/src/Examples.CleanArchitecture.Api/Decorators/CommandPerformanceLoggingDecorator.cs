@@ -1,14 +1,15 @@
 using System.Diagnostics;
 using DecoratR;
+using Examples.CleanArchitecture.Application.Abstractions;
 
-namespace Examples.SimpleApi;
+namespace Examples.CleanArchitecture.Api.Decorators;
 
-[Decorator]
-internal sealed class LoggingDecorator<TRequest, TResponse>(
+[Decorator(Order = 2)]
+internal sealed class CommandPerformanceLoggingDecorator<TRequest, TResponse>(
     IRequestHandler<TRequest, TResponse> inner,
-    ILogger<LoggingDecorator<TRequest, TResponse>> logger)
+    ILogger<CommandPerformanceLoggingDecorator<TRequest, TResponse>> logger)
     : IRequestHandler<TRequest, TResponse>
-    where TRequest : IRequest
+    where TRequest : ICommand
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
@@ -19,9 +20,10 @@ internal sealed class LoggingDecorator<TRequest, TResponse>(
         var time = Stopwatch.GetElapsedTime(timestamp);
 
         logger.LogInformation(
-            "Handled {Request} in {ElapsedMs}ms",
+            "Handled command {Request} in {ElapsedMs}ms",
             typeof(TRequest).Name,
             time.TotalMilliseconds);
+
         return response;
     }
 }

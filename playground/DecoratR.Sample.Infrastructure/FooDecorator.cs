@@ -1,6 +1,9 @@
 using System.Diagnostics;
+using DecoratR;
 
-namespace DecoratR.Sample.Application;
+[assembly: GenerateDecoratRMetadata]
+
+namespace DecoratR.Sample.Infrastructure;
 
 [Decorator(Order = 1)]
 internal sealed class FooDecorator<TRequest, TResponse>(

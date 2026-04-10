@@ -10,7 +10,7 @@ internal sealed class AddTodoCommandHandler(ITodoRepository repository)
 {
     public async ValueTask<Todo> HandleAsync(
         AddTodoCommand command,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var todo = Todo.Create(command.Title);
         await repository.AddAsync(todo, cancellationToken);

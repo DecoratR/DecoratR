@@ -1,3 +1,3 @@
 using DecoratR;
 
-[assembly: GenerateHandlerRegistrations]
+[assembly: GenerateDecoratRMetadata]

@@ -1,7 +1,7 @@
 using System.Reflection;
 using DecoratR;
 
-[assembly: GenerateHandlerRegistrations]
+[assembly: GenerateDecoratRMetadata]
 
 namespace DecoratR.Sample.Application;
 

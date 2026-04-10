@@ -20,11 +20,12 @@ app.MapGet("/todos", async (IRequestHandler<GetTodosQuery, IReadOnlyList<Todo>> 
     return Results.Ok(todos);
 });
 
-app.MapPost("/todos", async (IRequestHandler<AddTodoCommand, Todo> handler, AddTodoRequest request, CancellationToken ct) =>
-{
-    var todo = await handler.HandleAsync(new AddTodoCommand(request.Title), ct);
-    return Results.Created($"/todos/{todo.Id}", todo);
-});
+app.MapPost("/todos",
+    async (IRequestHandler<AddTodoCommand, Todo> handler, AddTodoRequest request, CancellationToken ct) =>
+    {
+        var todo = await handler.HandleAsync(new AddTodoCommand(request.Title), ct);
+        return Results.Created($"/todos/{todo.Id}", todo);
+    });
 
 app.Run();
 
