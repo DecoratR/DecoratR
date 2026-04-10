@@ -163,13 +163,11 @@ internal static class DecoratorRegistryEmitter
         // Only include non-IRequest constraints in the metadata
         var hasNonDefault = false;
         foreach (var c in constraintTypes)
-        {
             if (c != "global::DecoratR.IRequest")
             {
                 hasNonDefault = true;
                 break;
             }
-        }
 
         if (!hasNonDefault) return "";
 

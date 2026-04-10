@@ -9,7 +9,10 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> array)
 {
     private readonly ImmutableArray<T> _array = array;
 
-    public ImmutableArray<T> AsImmutableArray() => _array;
+    public ImmutableArray<T> AsImmutableArray()
+    {
+        return _array;
+    }
 
     public int Length => _array.IsDefault ? 0 : _array.Length;
 
@@ -41,7 +44,10 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> array)
         return true;
     }
 
-    public override bool Equals(object? obj) => obj is EquatableArray<T> other && Equals(other);
+    public override bool Equals(object? obj)
+    {
+        return obj is EquatableArray<T> other && Equals(other);
+    }
 
     public override int GetHashCode()
     {
@@ -57,9 +63,12 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> array)
         }
     }
 
-    public ImmutableArray<T>.Enumerator GetEnumerator() => _array.IsDefault
-        ? ImmutableArray<T>.Empty.GetEnumerator()
-        : _array.GetEnumerator();
+    public ImmutableArray<T>.Enumerator GetEnumerator()
+    {
+        return _array.IsDefault
+            ? ImmutableArray<T>.Empty.GetEnumerator()
+            : _array.GetEnumerator();
+    }
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
     {
@@ -68,7 +77,13 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> array)
         foreach (var item in _array) yield return item;
     }
 
-    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<T>)this).GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return ((IEnumerable<T>)this).GetEnumerator();
+    }
 
-    public static implicit operator EquatableArray<T>(ImmutableArray<T> array) => new(array);
+    public static implicit operator EquatableArray<T>(ImmutableArray<T> array)
+    {
+        return new EquatableArray<T>(array);
+    }
 }

@@ -37,7 +37,7 @@ internal sealed class DecoratorMetadata(
         {
             var hash = DecoratorFullyQualifiedName.GetHashCode() * 397;
             hash ^= Order;
-            hash = hash * 397 ^ RequestConstraintTypes.GetHashCode();
+            hash = (hash * 397) ^ RequestConstraintTypes.GetHashCode();
             return hash;
         }
     }
