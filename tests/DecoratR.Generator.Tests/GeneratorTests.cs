@@ -1649,6 +1649,81 @@ public class GeneratorTests
         return count;
     }
 
+    // ─── DecoratROptions generation ────────────────────────────────────────
+
+    [Fact]
+    public void DecoratROptions_IsGenerated_WithLifetimeProperty()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var optionsSource = generatedTrees.First(t => t.Contains("class DecoratROptions"));
+        Assert.Contains("ServiceLifetime Lifetime", optionsSource);
+        Assert.Contains("ServiceLifetime.Transient", optionsSource);
+    }
+
+    [Fact]
+    public void FullPath_AddDecoratR_AcceptsConfigureParameter()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        Assert.Contains("Action<global::DecoratR.DecoratROptions>? configure = null", registrations);
+        Assert.Contains("var options = new global::DecoratR.DecoratROptions();", registrations);
+        Assert.Contains("configure?.Invoke(options);", registrations);
+    }
+
+    [Fact]
+    public void FullPath_HandlerRegistration_UsesOptionsLifetime()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public sealed record TestCommand(string Name) : IRequest;
+
+                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                             => ValueTask.FromResult("Hello");
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        Assert.Contains("options.Lifetime));", registrations);
+        Assert.DoesNotContain("ServiceLifetime.Transient", registrations);
+    }
+
     // ─── Helper methods ─────────────────────────────────────────────────────
 
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] GeneratedSources) RunGenerator(

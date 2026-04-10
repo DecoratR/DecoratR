@@ -40,8 +40,13 @@ internal static class FullRegistrationEmitter
 
         sb.AppendIndentedLine(1,
             "public static global::Microsoft.Extensions.DependencyInjection.IServiceCollection AddDecoratR(");
-        sb.AppendIndentedLine(2, "this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
+        sb.AppendIndentedLine(2, "this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,");
+        sb.AppendIndentedLine(2,
+            "global::System.Action<global::DecoratR.DecoratROptions>? configure = null)");
         sb.AppendIndentedLine(1, "{");
+        sb.AppendIndentedLine(2, "var options = new global::DecoratR.DecoratROptions();");
+        sb.AppendIndentedLine(2, "configure?.Invoke(options);");
+        sb.AppendLine();
 
         EmitReferencedHandlerRegistrations(sb, referencedRegistryClassNames);
         EmitLocalHandlerRegistrations(sb, localHandlers, referencedRegistryClassNames.Length > 0);
@@ -77,7 +82,7 @@ internal static class FullRegistrationEmitter
                 "services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(");
             sb.AppendIndentedLine(4, "handler.ServiceType,");
             sb.AppendIndentedLine(4, "handler.ImplementationType,");
-            sb.AppendIndentedLine(4, "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient));");
+            sb.AppendIndentedLine(4, "options.Lifetime));");
             sb.AppendIndentedLine(2, "}");
         }
     }
@@ -101,7 +106,7 @@ internal static class FullRegistrationEmitter
                 .Append(handler.ResponseFullyQualifiedName)
                 .AppendLine(">),");
             sb.Append("            typeof(").Append(handler.HandlerFullyQualifiedName).AppendLine("),");
-            sb.AppendIndentedLine(3, "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient));");
+            sb.AppendIndentedLine(3, "options.Lifetime));");
         }
     }
 

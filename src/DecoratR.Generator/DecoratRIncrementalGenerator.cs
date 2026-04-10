@@ -185,6 +185,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             spc.ReportDiagnostic(Diagnostic.Create(
                 Diagnostics.DecoratorsDiscovered, Location.None, totalDecoratorCount, assemblyName));
 
+        spc.AddSource("DecoratROptions.g.cs",
+            AttributeEmitter.GenerateOptions());
+
         spc.AddSource("DecoratRRegistrations.g.cs",
             FullRegistrationEmitter.Generate(assemblyName, localHandlers,
                 referenced.RegistryClassNames, referenced.ServiceTypes,

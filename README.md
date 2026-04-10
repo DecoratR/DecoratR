@@ -169,6 +169,20 @@ builder.Services.AddDecoratR(); // Generated at compile time
 var app = builder.Build();
 ```
 
+## Handler Lifetime
+
+By default, all handlers are registered as **Transient**. You can change the service lifetime by passing a configuration
+action to `AddDecoratR()`:
+
+```csharp
+builder.Services.AddDecoratR(options =>
+{
+    options.Lifetime = ServiceLifetime.Scoped;
+});
+```
+
+This sets the lifetime for **all** handler registrations. Decorators automatically inherit the lifetime of the handler they wrap.
+
 ### 6. Use handlers
 
 Inject `IRequestHandler<TRequest, TResponse>` anywhere you need it. The container returns the fully decorated chain:
