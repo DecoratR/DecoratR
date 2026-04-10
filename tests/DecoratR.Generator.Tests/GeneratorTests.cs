@@ -1273,6 +1273,382 @@ public class GeneratorTests
             decoratorRegistry);
     }
 
+    // ─── Constraint-based decorator filtering ─────────────────────────────────
+
+    [Fact]
+    public void FullAttribute_ConstrainedDecorator_OnlyAppliedToMatchingHandlers()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public interface ICommand : IRequest;
+                     public interface IQuery : IRequest;
+
+                     public sealed record CreateUserCommand(string Name) : ICommand;
+                     public sealed record GetUsersQuery : IQuery;
+
+                     public sealed class CreateUserHandler : IRequestHandler<CreateUserCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(CreateUserCommand request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("created");
+                     }
+
+                     public sealed class GetUsersHandler : IRequestHandler<GetUsersQuery, string>
+                     {
+                         public ValueTask<string> HandleAsync(GetUsersQuery request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("users");
+                     }
+
+                     [Decorator(Order = 1)]
+                     public class CommandOnlyDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : ICommand
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public CommandOnlyDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // CommandOnlyDecorator should be applied to CreateUserCommand
+        Assert.Contains("CreateUserCommand", decorateSection);
+        Assert.Contains("CommandOnlyDecorator", decorateSection);
+
+        // CommandOnlyDecorator should NOT be applied to GetUsersQuery
+        Assert.DoesNotContain("GetUsersQuery", decorateSection);
+    }
+
+    [Fact]
+    public void FullAttribute_UnconstrainedDecorator_AppliedToAllHandlers()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public interface ICommand : IRequest;
+                     public interface IQuery : IRequest;
+
+                     public sealed record CreateUserCommand(string Name) : ICommand;
+                     public sealed record GetUsersQuery : IQuery;
+
+                     public sealed class CreateUserHandler : IRequestHandler<CreateUserCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(CreateUserCommand request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("created");
+                     }
+
+                     public sealed class GetUsersHandler : IRequestHandler<GetUsersQuery, string>
+                     {
+                         public ValueTask<string> HandleAsync(GetUsersQuery request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("users");
+                     }
+
+                     [Decorator(Order = 1)]
+                     public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // Unconstrained decorator (where TRequest : IRequest) should apply to both
+        Assert.Contains("CreateUserCommand", decorateSection);
+        Assert.Contains("GetUsersQuery", decorateSection);
+    }
+
+    [Fact]
+    public void FullAttribute_MixedConstrainedAndUnconstrainedDecorators()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public interface ICommand : IRequest;
+                     public interface IQuery : IRequest;
+
+                     public sealed record CreateUserCommand(string Name) : ICommand;
+                     public sealed record GetUsersQuery : IQuery;
+
+                     public sealed class CreateUserHandler : IRequestHandler<CreateUserCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(CreateUserCommand request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("created");
+                     }
+
+                     public sealed class GetUsersHandler : IRequestHandler<GetUsersQuery, string>
+                     {
+                         public ValueTask<string> HandleAsync(GetUsersQuery request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("users");
+                     }
+
+                     [Decorator(Order = 1)]
+                     public class LoggingDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : IRequest
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggingDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+
+                     [Decorator(Order = 2)]
+                     public class ValidationDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : ICommand
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public ValidationDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // LoggingDecorator should wrap both
+        var loggingCount = CountOccurrences(decorateSection, "LoggingDecorator");
+        Assert.Equal(2, loggingCount);
+
+        // ValidationDecorator should only wrap CreateUserCommand
+        var validationCount = CountOccurrences(decorateSection, "ValidationDecorator");
+        Assert.Equal(1, validationCount);
+        Assert.Contains("ValidationDecorator<global::CreateUserCommand", decorateSection);
+    }
+
+    [Fact]
+    public void TwoStage_ConstrainedDecoratorInLibrary_OnlyAppliedToMatchingHandlers()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+            public interface ICommand : IRequest;
+            public interface IQuery : IRequest;
+
+            public sealed record RemoteCommand(string Name) : ICommand;
+            public sealed record RemoteQuery : IQuery;
+
+            public sealed class RemoteCommandHandler : IRequestHandler<RemoteCommand, string>
+            {
+                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("handled");
+            }
+
+            public sealed class RemoteQueryHandler : IRequestHandler<RemoteQuery, string>
+            {
+                public ValueTask<string> HandleAsync(RemoteQuery request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("queried");
+            }
+
+            [Decorator(Order = 1)]
+            public class CommandDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : ICommand
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public CommandDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // CommandDecorator should only be applied to RemoteCommand, not RemoteQuery
+        Assert.Contains("RemoteCommand", decorateSection);
+        Assert.DoesNotContain("RemoteQuery", decorateSection);
+    }
+
+    [Fact]
+    public void TwoStage_ConstrainedDecoratorInLibrary_ApplyMethodHasCorrectConstraint()
+    {
+        var handlerSource = """
+                            using DecoratR;
+
+                            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+                            public interface ICommand : IRequest;
+
+                            public sealed record TestCommand(string Name) : ICommand;
+
+                            public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
+                            {
+                                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken)
+                                    => ValueTask.FromResult("Hello");
+                            }
+
+                            [Decorator(Order = 1)]
+                            public class CommandDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                                where TRequest : ICommand
+                            {
+                                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                                public CommandDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                                    => _inner.HandleAsync(request, cancellationToken);
+                            }
+                            """;
+
+        var (_, generatedTrees) = RunGenerator(handlerSource, "HandlerLib");
+
+        var decoratorRegistry = generatedTrees.First(t => t.Contains("DecoratRDecoratorRegistry"));
+
+        // Apply method should have the ICommand constraint, not IRequest
+        var applyMethod = decoratorRegistry.Split("public static void ApplyCommandDecorator")[1]
+            .Split("}")[0];
+        Assert.Contains("where TRequest : global::ICommand", applyMethod);
+        Assert.DoesNotContain("where TRequest : global::DecoratR.IRequest", applyMethod);
+
+        // Assembly attribute should include constraint info
+        Assert.Contains("RequestConstraintTypes", decoratorRegistry);
+        Assert.Contains("global::ICommand", decoratorRegistry);
+    }
+
+    [Fact]
+    public void FullAttribute_RequestWithMultipleMarkerInterfaces_MatchedByAllApplicableDecorators()
+    {
+        var source = """
+                     using DecoratR;
+
+                     [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+                     public interface ICommand : IRequest;
+                     public interface ILoggable;
+
+                     public sealed record LoggableCommand(string Name) : ICommand, ILoggable;
+
+                     public sealed class LoggableCommandHandler : IRequestHandler<LoggableCommand, string>
+                     {
+                         public ValueTask<string> HandleAsync(LoggableCommand request, CancellationToken cancellationToken)
+                             => ValueTask.FromResult("handled");
+                     }
+
+                     [Decorator(Order = 1)]
+                     public class CommandDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : ICommand
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public CommandDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+
+                     [Decorator(Order = 2)]
+                     public class LoggableDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                         where TRequest : ILoggable
+                     {
+                         private readonly IRequestHandler<TRequest, TResponse> _inner;
+                         public LoggableDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                         public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                             => _inner.HandleAsync(request, cancellationToken);
+                     }
+                     """;
+
+        var (_, generatedTrees) = RunGenerator(source);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // Both decorators should be applied to LoggableCommand (implements both ICommand and ILoggable)
+        Assert.Contains("CommandDecorator", decorateSection);
+        Assert.Contains("LoggableDecorator", decorateSection);
+    }
+
+    [Fact]
+    public void TwoStage_ConstrainedDecoratorWithLocalHandler_CorrectFiltering()
+    {
+        var (_, generatedTrees) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+            public interface ICommand : IRequest;
+
+            public sealed record RemoteCommand(string Name) : ICommand;
+
+            public sealed class RemoteCommandHandler : IRequestHandler<RemoteCommand, string>
+            {
+                public ValueTask<string> HandleAsync(RemoteCommand request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("remote");
+            }
+
+            [Decorator(Order = 1)]
+            public class CommandDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+                where TRequest : ICommand
+            {
+                private readonly IRequestHandler<TRequest, TResponse> _inner;
+                public CommandDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
+                    => _inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+            public sealed record LocalQuery : IRequest;
+
+            public sealed class LocalQueryHandler : IRequestHandler<LocalQuery, string>
+            {
+                public ValueTask<string> HandleAsync(LocalQuery request, CancellationToken cancellationToken)
+                    => ValueTask.FromResult("local");
+            }
+            """);
+
+        var registrations = generatedTrees.First(t => t.Contains("DecoratRServiceCollectionExtensions"));
+        var decorateSection =
+            registrations.Substring(registrations.IndexOf("// Apply decorators", StringComparison.Ordinal));
+
+        // CommandDecorator should be applied to RemoteCommand (ICommand) but NOT LocalQuery (IRequest only)
+        Assert.Contains("RemoteCommand", decorateSection);
+        Assert.DoesNotContain("LocalQuery", decorateSection);
+    }
+
+    private static int CountOccurrences(string text, string pattern)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(pattern, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += pattern.Length;
+        }
+
+        return count;
+    }
+
     // ─── Helper methods ─────────────────────────────────────────────────────
 
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] GeneratedSources) RunGenerator(

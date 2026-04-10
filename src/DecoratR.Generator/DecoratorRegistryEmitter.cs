@@ -23,8 +23,13 @@ internal static class DecoratorRegistryEmitter
             sb.Append("[assembly: global::DecoratR.DecoratRDecoratorRegistration(\"")
                 .Append(assemblyName).Append(".DecoratRDecoratorRegistry.").Append(methodName)
                 .Append("\", ")
-                .Append(decorator.Order)
-                .AppendLine(")]");
+                .Append(decorator.Order);
+
+            var constraintStr = BuildConstraintString(decorator.RequestConstraintTypes);
+            if (constraintStr.Length > 0)
+                sb.Append(", RequestConstraintTypes = \"").Append(constraintStr).Append('"');
+
+            sb.AppendLine(")]");
         }
 
         sb.AppendLine();
@@ -64,12 +69,28 @@ internal static class DecoratorRegistryEmitter
         sb.Append("    /// <remarks>Decorator order: <c>").Append(decorator.Order).AppendLine("</c>.</remarks>");
         sb.Append("    public static void ").Append(methodName).AppendLine("<TRequest, TResponse>(");
         sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
-        sb.AppendIndentedLine(2, "where TRequest : global::DecoratR.IRequest");
+        EmitWhereClause(sb, decorator.RequestConstraintTypes);
         sb.AppendIndentedLine(1, "{");
         sb.Append("        DecorateService<TRequest, TResponse, ")
             .Append(decorator.DecoratorFullyQualifiedName)
             .AppendLine("<TRequest, TResponse>>(services);");
         sb.AppendIndentedLine(1, "}");
+    }
+
+    private static void EmitWhereClause(StringBuilder sb, EquatableArray<string> constraintTypes)
+    {
+        // Find the most specific constraint (not IRequest itself)
+        string? specificConstraint = null;
+        foreach (var constraint in constraintTypes)
+        {
+            if (constraint == "global::DecoratR.IRequest") continue;
+            specificConstraint = constraint;
+            break;
+        }
+
+        // Use the specific constraint if available, otherwise fall back to IRequest
+        sb.Append("        where TRequest : ")
+            .AppendLine(specificConstraint ?? "global::DecoratR.IRequest");
     }
 
     internal static void EmitDecorateServiceCore(StringBuilder sb)
@@ -133,6 +154,35 @@ internal static class DecoratorRegistryEmitter
         name = name.Replace('.', '_');
 
         return string.Concat("Apply", name);
+    }
+
+    internal static string BuildConstraintString(EquatableArray<string> constraintTypes)
+    {
+        if (constraintTypes.Length == 0) return "";
+
+        // Only include non-IRequest constraints in the metadata
+        var hasNonDefault = false;
+        foreach (var c in constraintTypes)
+        {
+            if (c != "global::DecoratR.IRequest")
+            {
+                hasNonDefault = true;
+                break;
+            }
+        }
+
+        if (!hasNonDefault) return "";
+
+        var sb = new StringBuilder();
+        var first = true;
+        foreach (var constraint in constraintTypes)
+        {
+            if (!first) sb.Append(';');
+            sb.Append(constraint);
+            first = false;
+        }
+
+        return sb.ToString();
     }
 
     private static string StripGlobalPrefix(string typeName)

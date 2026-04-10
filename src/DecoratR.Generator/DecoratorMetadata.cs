@@ -1,10 +1,19 @@
 namespace DecoratR.Generator;
 
-internal sealed class DecoratorMetadata(string decoratorFullyQualifiedName, int order) : IEquatable<DecoratorMetadata>
+internal sealed class DecoratorMetadata(
+    string decoratorFullyQualifiedName,
+    int order,
+    EquatableArray<string> requestConstraintTypes) : IEquatable<DecoratorMetadata>
 {
     public string DecoratorFullyQualifiedName { get; } = decoratorFullyQualifiedName;
 
     public int Order { get; } = order;
+
+    /// <summary>
+    /// Fully qualified names of the type constraints on TRequest.
+    /// E.g. ["global::DecoratR.IRequest"] for unconstrained, ["global::MyApp.ICommand"] for constrained.
+    /// </summary>
+    public EquatableArray<string> RequestConstraintTypes { get; } = requestConstraintTypes;
 
     public bool Equals(DecoratorMetadata? other)
     {
@@ -12,7 +21,9 @@ internal sealed class DecoratorMetadata(string decoratorFullyQualifiedName, int 
 
         if (ReferenceEquals(this, other)) return true;
 
-        return DecoratorFullyQualifiedName == other.DecoratorFullyQualifiedName && Order == other.Order;
+        return DecoratorFullyQualifiedName == other.DecoratorFullyQualifiedName &&
+               Order == other.Order &&
+               RequestConstraintTypes.Equals(other.RequestConstraintTypes);
     }
 
     public override bool Equals(object? obj)
@@ -24,7 +35,10 @@ internal sealed class DecoratorMetadata(string decoratorFullyQualifiedName, int 
     {
         unchecked
         {
-            return (DecoratorFullyQualifiedName.GetHashCode() * 397) ^ Order;
+            var hash = DecoratorFullyQualifiedName.GetHashCode() * 397;
+            hash ^= Order;
+            hash = hash * 397 ^ RequestConstraintTypes.GetHashCode();
+            return hash;
         }
     }
 }

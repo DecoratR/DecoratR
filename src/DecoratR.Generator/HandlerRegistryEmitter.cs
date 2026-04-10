@@ -23,11 +23,19 @@ internal static class HandlerRegistryEmitter
             .AppendLine("\")]");
 
         foreach (var handler in handlers)
+        {
             sb.Append("[assembly: global::DecoratR.DecoratRHandlerServiceType(\"")
                 .Append(handler.RequestFullyQualifiedName)
                 .Append("\", \"")
                 .Append(handler.ResponseFullyQualifiedName)
-                .AppendLine("\")]");
+                .Append('"');
+
+            var hierarchyStr = BuildHierarchyString(handler.RequestTypeHierarchy);
+            if (hierarchyStr.Length > 0)
+                sb.Append(", RequestTypeHierarchy = \"").Append(hierarchyStr).Append('"');
+
+            sb.AppendLine(")]");
+        }
 
         sb.AppendLine();
         sb.Append("namespace ").Append(assemblyName).AppendLine(";");
@@ -74,6 +82,22 @@ internal static class HandlerRegistryEmitter
         sb.AppendIndentedLine(2,
             "[property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] global::System.Type ImplementationType);");
         sb.AppendLine("}");
+
+        return sb.ToString();
+    }
+
+    private static string BuildHierarchyString(EquatableArray<string> hierarchy)
+    {
+        if (hierarchy.Length == 0) return "";
+
+        var sb = new StringBuilder();
+        var first = true;
+        foreach (var type in hierarchy)
+        {
+            if (!first) sb.Append(';');
+            sb.Append(type);
+            first = false;
+        }
 
         return sb.ToString();
     }

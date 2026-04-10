@@ -114,16 +114,26 @@ internal static class FullRegistrationEmitter
     {
         if (localDecorators.Count == 0 && referencedDecorators.Length == 0) return;
 
-        var serviceTypeSet = new HashSet<(string Request, string Response)>();
+        // Build service type list with hierarchy lookup
+        var serviceTypeMap = new Dictionary<(string Request, string Response), HashSet<string>>();
+
         foreach (var h in localHandlers)
-            serviceTypeSet.Add((h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName));
+        {
+            var key = (h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName);
+            if (!serviceTypeMap.ContainsKey(key))
+                serviceTypeMap[key] = BuildHierarchySet(h.RequestTypeHierarchy);
+        }
 
         foreach (var h in referencedServiceTypes)
-            serviceTypeSet.Add((h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName));
+        {
+            var key = (h.RequestFullyQualifiedName, h.ResponseFullyQualifiedName);
+            if (!serviceTypeMap.ContainsKey(key))
+                serviceTypeMap[key] = BuildHierarchySet(h.RequestTypeHierarchy);
+        }
 
-        if (serviceTypeSet.Count == 0) return;
+        if (serviceTypeMap.Count == 0) return;
 
-        var allServiceTypes = new List<(string Request, string Response)>(serviceTypeSet);
+        var allServiceTypes = new List<(string Request, string Response)>(serviceTypeMap.Keys);
         allServiceTypes.Sort((a, b) =>
         {
             var cmp = string.Compare(a.Request, b.Request, StringComparison.Ordinal);
@@ -131,10 +141,13 @@ internal static class FullRegistrationEmitter
         });
 
         // Merge local and referenced decorators into a single ordered list
-        var allDecorators = new List<(int Order, string Name, bool IsLocal)>();
-        foreach (var d in localDecorators) allDecorators.Add((d.Order, d.DecoratorFullyQualifiedName, true));
+        var allDecorators = new List<(int Order, string Name, bool IsLocal, EquatableArray<string> Constraints)>();
 
-        foreach (var d in referencedDecorators) allDecorators.Add((d.Order, d.ApplyMethodName, false));
+        foreach (var d in localDecorators)
+            allDecorators.Add((d.Order, d.DecoratorFullyQualifiedName, true, d.RequestConstraintTypes));
+
+        foreach (var d in referencedDecorators)
+            allDecorators.Add((d.Order, d.ApplyMethodName, false, d.RequestConstraintTypes));
 
         allDecorators.Sort((a, b) =>
         {
@@ -146,9 +159,15 @@ internal static class FullRegistrationEmitter
         sb.AppendIndentedLine(2, "// Apply decorators (ordered by Order, lowest = outermost)");
 
         foreach (var (requestType, responseType) in allServiceTypes)
+        {
+            var hierarchy = serviceTypeMap[(requestType, responseType)];
+
             for (var i = allDecorators.Count - 1; i >= 0; i--)
             {
-                var (_, name, isLocal) = allDecorators[i];
+                var (_, name, isLocal, constraints) = allDecorators[i];
+
+                if (!SatisfiesConstraints(hierarchy, constraints))
+                    continue;
 
                 if (isLocal)
                     // Local decorator: generated DecorateService<> call
@@ -163,5 +182,29 @@ internal static class FullRegistrationEmitter
                         .Append('<').Append(requestType).Append(", ").Append(responseType)
                         .AppendLine(">(services);");
             }
+        }
+    }
+
+    private static HashSet<string> BuildHierarchySet(EquatableArray<string> hierarchy)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var type in hierarchy) set.Add(type);
+        return set;
+    }
+
+    private static bool SatisfiesConstraints(HashSet<string> requestHierarchy, EquatableArray<string> constraints)
+    {
+        if (constraints.Length == 0) return true;
+
+        foreach (var constraint in constraints)
+        {
+            // IRequest is always satisfied by any request type
+            if (constraint == "global::DecoratR.IRequest") continue;
+
+            if (!requestHierarchy.Contains(constraint))
+                return false;
+        }
+
+        return true;
     }
 }

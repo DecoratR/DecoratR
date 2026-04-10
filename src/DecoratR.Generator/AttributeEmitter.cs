@@ -114,6 +114,12 @@ internal static class AttributeEmitter
 
                    public string RequestType { get; }
                    public string ResponseType { get; }
+
+                   /// <summary>
+                   /// Semicolon-delimited fully qualified type names of interfaces and base types
+                   /// implemented by the request type. Used for decorator constraint matching.
+                   /// </summary>
+                   public string RequestTypeHierarchy { get; init; } = "";
                }
                """;
     }
@@ -147,6 +153,12 @@ internal static class AttributeEmitter
 
                    public string ApplyMethodName { get; }
                    public int Order { get; }
+
+                   /// <summary>
+                   /// Semicolon-delimited fully qualified type names of the TRequest constraints.
+                   /// Empty string means the decorator applies to all request types.
+                   /// </summary>
+                   public string RequestConstraintTypes { get; init; } = "";
                }
                """;
     }

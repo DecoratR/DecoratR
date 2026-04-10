@@ -194,7 +194,41 @@ MyApp.Presentation/       → ASP.NET Core host, endpoint definitions
 The key rules:
 1. **Library projects** that define handlers/decorators use `[GenerateDecoratRMetadata]` and reference both `DecoratR.Abstractions` and `DecoratR.Generator` (as analyzer).
 2. **The composition root** (host project) uses `[GenerateDecoratRRegistrations]` and references `DecoratR.Generator` (as analyzer). It picks up handlers and decorators from all referenced assemblies automatically.
-3. Decorators are applied to **every** handler across all assemblies. They are sorted by `Order`, then by name.
+3. By default, decorators are applied to **every** handler across all assemblies. Use [type constraints](#scoping-decorators-to-specific-request-types) to limit a decorator to specific request types.
+
+## Scoping Decorators to Specific Request Types
+
+By default, a decorator with `where TRequest : IRequest` wraps every handler. To restrict a decorator to a subset of requests, narrow the generic constraint to a more specific type:
+
+```csharp
+// Define marker interfaces for different request kinds
+public interface ICommand : IRequest;
+public interface IQuery : IRequest;
+
+// Requests
+public sealed record CreateUserCommand(string Name) : ICommand;
+public sealed record GetUsersQuery : IQuery;
+
+// This decorator only wraps ICommand handlers
+[Decorator(Order = 2)]
+public sealed class ValidationDecorator<TRequest, TResponse>(
+    IRequestHandler<TRequest, TResponse> inner,
+    IValidator<TRequest> validator)
+    : IRequestHandler<TRequest, TResponse>
+    where TRequest : ICommand          // ← only commands
+{
+    public async ValueTask<TResponse> HandleAsync(
+        TRequest request, CancellationToken cancellationToken)
+    {
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        return await inner.HandleAsync(request, cancellationToken);
+    }
+}
+```
+
+The generator reads the constraint at compile time and only emits `DecorateService` calls for handlers whose request type satisfies the constraint. In the example above, `ValidationDecorator` wraps `CreateUserCommand` (which implements `ICommand`) but **not** `GetUsersQuery`.
+
+This works across assembly boundaries and supports any constraint expressible in C#: interfaces, base classes, or combinations like `where TRequest : ICommand, ILoggable`.
 
 ## Decorator Ordering
 

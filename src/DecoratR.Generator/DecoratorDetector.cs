@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace DecoratR.Generator;
@@ -22,6 +23,22 @@ internal static class DecoratorDetector
         var angleIndex = openGenericName.IndexOf('<');
         if (angleIndex >= 0) openGenericName = openGenericName.Substring(0, angleIndex);
 
-        return new DecoratorMetadata(openGenericName, order);
+        // Extract type constraints on TRequest (first type parameter)
+        var requestConstraints = ExtractRequestConstraints(symbol.TypeParameters[0]);
+
+        return new DecoratorMetadata(openGenericName, order, requestConstraints);
+    }
+
+    private static EquatableArray<string> ExtractRequestConstraints(ITypeParameterSymbol typeParameter)
+    {
+        if (typeParameter.ConstraintTypes.Length == 0)
+            return ImmutableArray<string>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<string>(typeParameter.ConstraintTypes.Length);
+
+        foreach (var constraint in typeParameter.ConstraintTypes)
+            builder.Add(constraint.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+        return builder.ToImmutable();
     }
 }
