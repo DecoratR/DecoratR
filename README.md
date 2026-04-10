@@ -57,7 +57,7 @@ internal sealed class GreetCommandHandler(IGreetingRepository repository)
 {
     public async ValueTask<TResponse> HandleAsync(
         GreetCommand command,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         var greeting = Greeting.Create(command.Name);
         await repository.AddAsync(greeting, cancellationToken);
@@ -86,7 +86,7 @@ public sealed class ExceptionHandlingDecorator<TRequest, TResponse>(
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -113,7 +113,7 @@ public sealed class RequestLoggingDecorator<TRequest, TResponse>(
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Handling {Request}: {Payload}", typeof(TRequest).Name, request);
         var response = await inner.HandleAsync(request, cancellationToken);
@@ -168,6 +168,20 @@ builder.Services.AddDecoratR(); // Generated at compile time
 
 var app = builder.Build();
 ```
+
+## Handler Lifetime
+
+By default, all handlers are registered as **Transient**. You can change the service lifetime by passing a configuration
+action to `AddDecoratR()`:
+
+```csharp
+builder.Services.AddDecoratR(options =>
+{
+    options.Lifetime = ServiceLifetime.Scoped;
+});
+```
+
+This sets the lifetime for **all** handler registrations. Decorators automatically inherit the lifetime of the handler they wrap.
 
 ### 6. Use handlers
 
@@ -233,7 +247,7 @@ public sealed class ValidationDecorator<TRequest, TResponse>(
     where TRequest : ICommand          // ← only commands
 {
     public async ValueTask<TResponse> HandleAsync(
-        TRequest request, CancellationToken cancellationToken)
+        TRequest request, CancellationToken cancellationToken = default)
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         return await inner.HandleAsync(request, cancellationToken);

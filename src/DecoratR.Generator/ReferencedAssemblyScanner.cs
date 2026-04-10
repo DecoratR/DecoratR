@@ -9,7 +9,7 @@ internal static class ReferencedAssemblyScanner
     private const string HandlerServiceTypeAttributeName = "DecoratRHandlerServiceTypeAttribute";
     private const string DecoratorRegistrationAttributeName = "DecoratRDecoratorRegistrationAttribute";
 
-    public static ReferencedRegistrationData Scan(Compilation compilation, CancellationToken cancellationToken)
+    public static ReferencedRegistrationData Scan(Compilation compilation, CancellationToken cancellationToken = default)
     {
         var registryClassNames = ImmutableArray.CreateBuilder<string>();
         var serviceTypes = ImmutableArray.CreateBuilder<HandlerMetadata>();

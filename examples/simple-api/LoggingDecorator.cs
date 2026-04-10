@@ -12,7 +12,7 @@ internal sealed class LoggingDecorator<TRequest, TResponse>(
 {
     public async ValueTask<TResponse> HandleAsync(
         TRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         var timestamp = Stopwatch.GetTimestamp();
         var response = await inner.HandleAsync(request, cancellationToken);
