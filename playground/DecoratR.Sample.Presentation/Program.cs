@@ -1,3 +1,4 @@
+using DecoratR.Sample.Application;
 using DecoratR.Sample.Infrastructure;
 using DecoratR.Sample.Presentation;
 using DecoratR.Sample.Presentation.Endpoints;
@@ -10,6 +11,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddDecoratR();
 
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddOpenApi();
 
