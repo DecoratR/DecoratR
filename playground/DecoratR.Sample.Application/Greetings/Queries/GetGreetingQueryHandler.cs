@@ -4,7 +4,7 @@ using DecoratR.Sample.Domain;
 namespace DecoratR.Sample.Application.Greetings.Queries;
 
 internal sealed class GetGreetingQueryHandler(IGreetingRepository repository)
-    : IRequestHandler<GetGreetingQuery, string>
+    : IQueryHandler<GetGreetingQuery, string>
 {
     public async ValueTask<string> HandleAsync(GetGreetingQuery query, CancellationToken cancellationToken = default)
     {

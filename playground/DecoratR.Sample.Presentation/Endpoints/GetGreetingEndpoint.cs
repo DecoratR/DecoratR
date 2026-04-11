@@ -14,7 +14,7 @@ public static class GetGreetingEndpoint
     private static async ValueTask<IResult> Handle(
         [FromServices] IRequestHandler<GetGreetingQuery, string> handler,
         [FromRoute] string name,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetGreetingQuery(name), cancellationToken);
         return Results.Ok(new Response(result));
