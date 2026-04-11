@@ -265,12 +265,6 @@ The generator reports a small set of diagnostics to help with discovery and trou
 | `DCTR002` | Info | Handlers were discovered successfully. |
 | `DCTR003` | Info | Decorators were discovered successfully. |
 
-## Requirements
-
-- Repository development and the included samples use .NET SDK `10.0.0` as pinned in `global.json`.
-- `DecoratR.Abstractions` targets `net8.0`, `net9.0`, and `net10.0`.
-- `DecoratR.Generator` targets `netstandard2.0` as a Roslyn analyzer.
-
 ## Examples in this repository
 
 ### Simple API
