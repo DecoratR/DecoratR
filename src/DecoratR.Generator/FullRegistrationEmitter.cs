@@ -121,7 +121,8 @@ internal static class FullRegistrationEmitter
         if (localDecorators.Count == 0 && referencedDecorators.Length == 0) return;
 
         // Build service type list with hierarchy lookup
-        var serviceTypeMap = new Dictionary<(string Request, string Response), HashSet<string>>();
+        var totalHandlerCount = localHandlers.Count + referencedServiceTypes.Length;
+        var serviceTypeMap = new Dictionary<(string Request, string Response), HashSet<string>>(totalHandlerCount);
 
         foreach (var h in localHandlers)
         {
@@ -147,7 +148,8 @@ internal static class FullRegistrationEmitter
         });
 
         // Merge local and referenced decorators into a single ordered list
-        var allDecorators = new List<(int Order, string Name, bool IsLocal, EquatableArray<string> Constraints)>();
+        var allDecorators = new List<(int Order, string Name, bool IsLocal, EquatableArray<string> Constraints)>(
+            localDecorators.Count + referencedDecorators.Length);
 
         foreach (var d in localDecorators)
             allDecorators.Add((d.Order, d.DecoratorFullyQualifiedName, true, d.RequestConstraintTypes));

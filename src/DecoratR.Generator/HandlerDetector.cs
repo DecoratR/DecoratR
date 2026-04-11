@@ -35,13 +35,11 @@ internal static class HandlerDetector
     {
         foreach (var iface in symbol.AllInterfaces)
         {
-            if (iface.OriginalDefinition.ToDisplayString() != "DecoratR.IRequestHandler<TRequest, TResponse>") continue;
-
-            if (iface.TypeArguments.Length != 2) continue;
+            if (!IsRequestHandlerInterface(iface)) continue;
 
             var isDecorator = false;
             foreach (var attr in symbol.GetAttributes())
-                if (attr.AttributeClass?.ToDisplayString() == "DecoratR.DecoratorAttribute")
+                if (attr.AttributeClass is { MetadataName: "DecoratorAttribute", ContainingNamespace: { Name: "DecoratR", ContainingNamespace.IsGlobalNamespace: true } })
                 {
                     isDecorator = true;
                     break;
@@ -64,7 +62,8 @@ internal static class HandlerDetector
 
     internal static EquatableArray<string> BuildTypeHierarchy(ITypeSymbol typeSymbol)
     {
-        var builder = ImmutableArray.CreateBuilder<string>();
+        // Pre-size: the type itself + all interfaces + estimated base chain depth
+        var builder = ImmutableArray.CreateBuilder<string>(1 + typeSymbol.AllInterfaces.Length + 2);
 
         // The type itself
         builder.Add(typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
@@ -82,5 +81,16 @@ internal static class HandlerDetector
         }
 
         return builder.ToImmutable();
+    }
+
+    private static bool IsRequestHandlerInterface(INamedTypeSymbol iface)
+    {
+        if (iface.TypeArguments.Length != 2) return false;
+
+        var original = iface.OriginalDefinition;
+        if (original.MetadataName != "IRequestHandler`2") return false;
+
+        var ns = original.ContainingNamespace;
+        return ns is { Name: "DecoratR", ContainingNamespace.IsGlobalNamespace: true };
     }
 }

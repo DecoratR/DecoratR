@@ -16,18 +16,26 @@ internal static class DecoratorRegistryEmitter
         sb.AppendLine("#pragma warning disable CS0612, CS0618 // Type or member is obsolete");
         sb.AppendLine();
 
+        // Pre-compute method names to avoid duplicate string allocations
+        var methodNames = new string[decorators.Count];
+        for (var i = 0; i < decorators.Count; i++)
+            methodNames[i] = GetApplyMethodName(decorators[i]);
+
         // Assembly-level metadata attributes for each decorator
-        foreach (var decorator in decorators)
+        for (var i = 0; i < decorators.Count; i++)
         {
-            var methodName = GetApplyMethodName(decorator);
+            var decorator = decorators[i];
             sb.Append("[assembly: global::DecoratR.DecoratRDecoratorRegistration(\"")
-                .Append(assemblyName).Append(".DecoratRDecoratorRegistry.").Append(methodName)
+                .Append(assemblyName).Append(".DecoratRDecoratorRegistry.").Append(methodNames[i])
                 .Append("\", ")
                 .Append(decorator.Order);
 
-            var constraintStr = BuildConstraintString(decorator.RequestConstraintTypes);
-            if (constraintStr.Length > 0)
-                sb.Append(", RequestConstraintTypes = \"").Append(constraintStr).Append('"');
+            if (HasNonDefaultConstraints(decorator.RequestConstraintTypes))
+            {
+                sb.Append(", RequestConstraintTypes = \"");
+                AppendSemicolonDelimited(sb, decorator.RequestConstraintTypes);
+                sb.Append('"');
+            }
 
             sb.AppendLine(")]");
         }
@@ -46,7 +54,7 @@ internal static class DecoratorRegistryEmitter
         {
             if (i > 0) sb.AppendLine();
 
-            EmitApplyMethod(sb, decorators[i]);
+            EmitApplyMethod(sb, decorators[i], methodNames[i]);
         }
 
         sb.AppendLine();
@@ -59,12 +67,11 @@ internal static class DecoratorRegistryEmitter
         return sb.ToString();
     }
 
-    private static void EmitApplyMethod(StringBuilder sb, DecoratorMetadata decorator)
+    private static void EmitApplyMethod(StringBuilder sb, DecoratorMetadata decorator, string methodName)
     {
-        var methodName = GetApplyMethodName(decorator);
         sb.AppendIndentedLine(1, "/// <summary>");
         sb.Append("    /// Wraps <c>IRequestHandler&lt;TRequest, TResponse&gt;</c> with <c>")
-            .Append(StripGlobalPrefix(decorator.DecoratorFullyQualifiedName))
+            .AppendStrippedGlobalPrefix(decorator.DecoratorFullyQualifiedName)
             .AppendLine("</c>.");
         sb.AppendIndentedLine(1, "/// </summary>");
         sb.Append("    /// <remarks>Decorator order: <c>").Append(decorator.Order).AppendLine("</c>.</remarks>");
@@ -147,7 +154,11 @@ internal static class DecoratorRegistryEmitter
 
     internal static string GetApplyMethodName(DecoratorMetadata decorator)
     {
-        var name = StripGlobalPrefix(decorator.DecoratorFullyQualifiedName);
+        var name = decorator.DecoratorFullyQualifiedName;
+
+        // Strip "global::" prefix
+        if (name.StartsWith("global::", StringComparison.OrdinalIgnoreCase))
+            name = name.Substring("global::".Length);
 
         // Replace dots with underscores to preserve namespace uniqueness
         // (e.g. App.LoggingDecorator and Infra.LoggingDecorator produce
@@ -157,37 +168,23 @@ internal static class DecoratorRegistryEmitter
         return string.Concat("Apply", name);
     }
 
-    internal static string BuildConstraintString(EquatableArray<string> constraintTypes)
+    private static bool HasNonDefaultConstraints(EquatableArray<string> constraintTypes)
     {
-        if (constraintTypes.Length == 0) return "";
+        if (constraintTypes.Length == 0) return false;
 
-        // Only include non-IRequest constraints in the metadata
-        var hasNonDefault = false;
         foreach (var c in constraintTypes)
             if (c != "global::DecoratR.IRequest")
-            {
-                hasNonDefault = true;
-                break;
-            }
+                return true;
 
-        if (!hasNonDefault) return "";
-
-        var sb = new StringBuilder();
-        var first = true;
-        foreach (var constraint in constraintTypes)
-        {
-            if (!first) sb.Append(';');
-            sb.Append(constraint);
-            first = false;
-        }
-
-        return sb.ToString();
+        return false;
     }
 
-    private static string StripGlobalPrefix(string typeName)
+    private static void AppendSemicolonDelimited(StringBuilder sb, EquatableArray<string> items)
     {
-        return typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase)
-            ? typeName.Substring("global::".Length)
-            : typeName;
+        for (var i = 0; i < items.Length; i++)
+        {
+            if (i > 0) sb.Append(';');
+            sb.Append(items[i]);
+        }
     }
 }

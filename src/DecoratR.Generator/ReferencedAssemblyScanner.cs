@@ -68,14 +68,28 @@ internal static class ReferencedAssemblyScanner
         if (string.IsNullOrEmpty(value))
             return ImmutableArray<string>.Empty;
 
-        var parts = value.Split(';');
-        var builder = ImmutableArray.CreateBuilder<string>(parts.Length);
+        // Count segments to pre-size the builder
+        var count = 1;
+        for (var i = 0; i < value.Length; i++)
+            if (value[i] == ';')
+                count++;
 
-        foreach (var part in parts)
+        var builder = ImmutableArray.CreateBuilder<string>(count);
+        var start = 0;
+
+        while (start <= value.Length)
         {
-            var trimmed = part.Trim();
-            if (trimmed.Length > 0)
-                builder.Add(trimmed);
+            var end = value.IndexOf(';', start);
+            if (end < 0) end = value.Length;
+
+            if (end > start)
+            {
+                var segment = value.Substring(start, end - start).Trim();
+                if (segment.Length > 0)
+                    builder.Add(segment);
+            }
+
+            start = end + 1;
         }
 
         return builder.ToImmutable();
