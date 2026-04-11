@@ -1,14 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\DecoratR.Abstractions\DecoratR.Abstractions.csproj" />
-    <ProjectReference Include="..\..\src\DecoratR.Generator\DecoratR.Generator.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\shared\Examples.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="DecoratR.Abstractions" Version="0.0.6" />
+    <PackageReference Include="DecoratR.Generator" Version="0.0.6">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.13.21" />
   </ItemGroup>
