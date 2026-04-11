@@ -25,12 +25,16 @@ internal static class DecoratorRegistryEmitter
         for (var i = 0; i < decorators.Count; i++)
         {
             var decorator = decorators[i];
-            sb.Append("[assembly: global::DecoratR.DecoratRDecoratorRegistration(\"")
+            var attributeName = decorator.IsStream
+                ? "DecoratRStreamDecoratorRegistration"
+                : "DecoratRDecoratorRegistration";
+
+            sb.Append("[assembly: global::DecoratR.").Append(attributeName).Append("(\"")
                 .Append(assemblyName).Append(".DecoratRDecoratorRegistry.").Append(methodNames[i])
                 .Append("\", ")
                 .Append(decorator.Order);
 
-            if (HasNonDefaultConstraints(decorator.RequestConstraintTypes))
+            if (HasNonDefaultConstraints(decorator.RequestConstraintTypes, decorator.IsStream))
             {
                 sb.Append(", RequestConstraintTypes = \"");
                 AppendSemicolonDelimited(sb, decorator.RequestConstraintTypes);
@@ -50,17 +54,33 @@ internal static class DecoratorRegistryEmitter
         sb.AppendLine("{");
 
         // Per-decorator public apply methods
+        var hasRegular = false;
+        var hasStream = false;
         for (var i = 0; i < decorators.Count; i++)
         {
             if (i > 0) sb.AppendLine();
 
-            EmitApplyMethod(sb, decorators[i], methodNames[i]);
+            if (decorators[i].IsStream)
+            {
+                EmitStreamApplyMethod(sb, decorators[i], methodNames[i]);
+                hasStream = true;
+            }
+            else
+            {
+                EmitApplyMethod(sb, decorators[i], methodNames[i]);
+                hasRegular = true;
+            }
         }
 
         sb.AppendLine();
 
-        // Shared private core method that inlines the decoration logic
-        EmitDecorateServiceCore(sb);
+        // Shared private core methods
+        if (hasRegular) EmitDecorateServiceCore(sb);
+        if (hasStream)
+        {
+            if (hasRegular) sb.AppendLine();
+            EmitDecorateStreamServiceCore(sb);
+        }
 
         sb.AppendLine("}");
 
@@ -77,7 +97,7 @@ internal static class DecoratorRegistryEmitter
         sb.Append("    /// <remarks>Decorator order: <c>").Append(decorator.Order).AppendLine("</c>.</remarks>");
         sb.Append("    public static void ").Append(methodName).AppendLine("<TRequest, TResponse>(");
         sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
-        EmitWhereClause(sb, decorator.RequestConstraintTypes);
+        EmitWhereClause(sb, decorator.RequestConstraintTypes, "global::DecoratR.IRequest");
         sb.AppendIndentedLine(1, "{");
         sb.Append("        DecorateService<TRequest, TResponse, ")
             .Append(decorator.DecoratorFullyQualifiedName)
@@ -85,20 +105,38 @@ internal static class DecoratorRegistryEmitter
         sb.AppendIndentedLine(1, "}");
     }
 
-    private static void EmitWhereClause(StringBuilder sb, EquatableArray<string> constraintTypes)
+    private static void EmitStreamApplyMethod(StringBuilder sb, DecoratorMetadata decorator, string methodName)
     {
-        // Find the most specific constraint (not IRequest itself)
+        sb.AppendIndentedLine(1, "/// <summary>");
+        sb.Append("    /// Wraps <c>IStreamRequestHandler&lt;TRequest, TResponse&gt;</c> with <c>")
+            .AppendStrippedGlobalPrefix(decorator.DecoratorFullyQualifiedName)
+            .AppendLine("</c>.");
+        sb.AppendIndentedLine(1, "/// </summary>");
+        sb.Append("    /// <remarks>Decorator order: <c>").Append(decorator.Order).AppendLine("</c>.</remarks>");
+        sb.Append("    public static void ").Append(methodName).AppendLine("<TRequest, TResponse>(");
+        sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
+        EmitWhereClause(sb, decorator.RequestConstraintTypes, "global::DecoratR.IStreamRequest");
+        sb.AppendIndentedLine(1, "{");
+        sb.Append("        DecorateStreamService<TRequest, TResponse, ")
+            .Append(decorator.DecoratorFullyQualifiedName)
+            .AppendLine("<TRequest, TResponse>>(services);");
+        sb.AppendIndentedLine(1, "}");
+    }
+
+    private static void EmitWhereClause(StringBuilder sb, EquatableArray<string> constraintTypes, string defaultConstraint)
+    {
+        // Find the most specific constraint (not the default marker itself)
         string? specificConstraint = null;
         foreach (var constraint in constraintTypes)
         {
-            if (constraint == "global::DecoratR.IRequest") continue;
+            if (constraint == "global::DecoratR.IRequest" || constraint == "global::DecoratR.IStreamRequest") continue;
             specificConstraint = constraint;
             break;
         }
 
-        // Use the specific constraint if available, otherwise fall back to IRequest
+        // Use the specific constraint if available, otherwise fall back to the default
         sb.Append("        where TRequest : ")
-            .AppendLine(specificConstraint ?? "global::DecoratR.IRequest");
+            .AppendLine(specificConstraint ?? defaultConstraint);
     }
 
     internal static void EmitDecorateServiceCore(StringBuilder sb)
@@ -112,6 +150,27 @@ internal static class DecoratorRegistryEmitter
         sb.AppendIndentedLine(2, "where TDecorator : global::DecoratR.IRequestHandler<TRequest, TResponse>");
         sb.AppendIndentedLine(1, "{");
         sb.AppendIndentedLine(2, "var serviceType = typeof(global::DecoratR.IRequestHandler<TRequest, TResponse>);");
+        EmitDecorateLogic(sb);
+        sb.AppendIndentedLine(1, "}");
+    }
+
+    internal static void EmitDecorateStreamServiceCore(StringBuilder sb)
+    {
+        sb.AppendIndentedLine(1, "private static void DecorateStreamService<TRequest, TResponse,");
+        sb.AppendIndentedLine(2, "[global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(");
+        sb.AppendIndentedLine(3,
+            "global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(");
+        sb.AppendIndentedLine(2, "global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)");
+        sb.AppendIndentedLine(2, "where TRequest : global::DecoratR.IStreamRequest");
+        sb.AppendIndentedLine(2, "where TDecorator : global::DecoratR.IStreamRequestHandler<TRequest, TResponse>");
+        sb.AppendIndentedLine(1, "{");
+        sb.AppendIndentedLine(2, "var serviceType = typeof(global::DecoratR.IStreamRequestHandler<TRequest, TResponse>);");
+        EmitDecorateLogic(sb);
+        sb.AppendIndentedLine(1, "}");
+    }
+
+    private static void EmitDecorateLogic(StringBuilder sb)
+    {
         sb.AppendLine();
         sb.AppendIndentedLine(2,
             "global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor? wrappedDescriptor = null;");
@@ -149,7 +208,6 @@ internal static class DecoratorRegistryEmitter
         sb.AppendIndentedLine(5, "provider, typeof(TDecorator), innerInstance);");
         sb.AppendIndentedLine(3, "},");
         sb.AppendIndentedLine(3, "wrappedDescriptor.Lifetime));");
-        sb.AppendIndentedLine(1, "}");
     }
 
     internal static string GetApplyMethodName(DecoratorMetadata decorator)
@@ -165,15 +223,17 @@ internal static class DecoratorRegistryEmitter
         //  ApplyApp_LoggingDecorator and ApplyInfra_LoggingDecorator)
         name = name.Replace('.', '_');
 
-        return string.Concat("Apply", name);
+        var prefix = decorator.IsStream ? "ApplyStream" : "Apply";
+        return string.Concat(prefix, name);
     }
 
-    private static bool HasNonDefaultConstraints(EquatableArray<string> constraintTypes)
+    private static bool HasNonDefaultConstraints(EquatableArray<string> constraintTypes, bool isStream)
     {
         if (constraintTypes.Length == 0) return false;
 
+        var defaultMarker = isStream ? "global::DecoratR.IStreamRequest" : "global::DecoratR.IRequest";
         foreach (var c in constraintTypes)
-            if (c != "global::DecoratR.IRequest")
+            if (c != defaultMarker && c != "global::DecoratR.IRequest")
                 return true;
 
         return false;

@@ -3,7 +3,8 @@ namespace DecoratR.Generator;
 internal sealed class DecoratorMetadata(
     string decoratorFullyQualifiedName,
     int order,
-    EquatableArray<string> requestConstraintTypes) : IEquatable<DecoratorMetadata>
+    EquatableArray<string> requestConstraintTypes,
+    bool isStream = false) : IEquatable<DecoratorMetadata>
 {
     public string DecoratorFullyQualifiedName { get; } = decoratorFullyQualifiedName;
 
@@ -15,6 +16,11 @@ internal sealed class DecoratorMetadata(
     /// </summary>
     public EquatableArray<string> RequestConstraintTypes { get; } = requestConstraintTypes;
 
+    /// <summary>
+    /// Whether this decorator targets <c>IStreamRequestHandler</c> instead of <c>IRequestHandler</c>.
+    /// </summary>
+    public bool IsStream { get; } = isStream;
+
     public bool Equals(DecoratorMetadata? other)
     {
         if (other is null) return false;
@@ -23,6 +29,7 @@ internal sealed class DecoratorMetadata(
 
         return DecoratorFullyQualifiedName == other.DecoratorFullyQualifiedName &&
                Order == other.Order &&
+               IsStream == other.IsStream &&
                RequestConstraintTypes.Equals(other.RequestConstraintTypes);
     }
 
@@ -37,6 +44,7 @@ internal sealed class DecoratorMetadata(
         {
             var hash = DecoratorFullyQualifiedName.GetHashCode() * 397;
             hash ^= Order;
+            hash = (hash * 397) ^ IsStream.GetHashCode();
             hash = (hash * 397) ^ RequestConstraintTypes.GetHashCode();
             return hash;
         }

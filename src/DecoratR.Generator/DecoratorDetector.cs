@@ -23,10 +23,19 @@ internal static class DecoratorDetector
         var angleIndex = openGenericName.IndexOf('<');
         if (angleIndex >= 0) openGenericName = openGenericName.Substring(0, angleIndex);
 
+        // Determine whether this is a stream decorator (IStreamRequestHandler) or regular (IRequestHandler)
+        var isStream = false;
+        foreach (var iface in symbol.AllInterfaces)
+            if (StreamHandlerDetector.IsStreamRequestHandlerInterface(iface))
+            {
+                isStream = true;
+                break;
+            }
+
         // Extract type constraints on TRequest (first type parameter)
         var requestConstraints = ExtractRequestConstraints(symbol.TypeParameters[0]);
 
-        return new DecoratorMetadata(openGenericName, order, requestConstraints);
+        return new DecoratorMetadata(openGenericName, order, requestConstraints, isStream);
     }
 
     private static EquatableArray<string> ExtractRequestConstraints(ITypeParameterSymbol typeParameter)

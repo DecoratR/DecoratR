@@ -14,7 +14,7 @@ public class HandlerDiscoveryTests : GeneratorTestBase
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        generatedTrees.Should().HaveCount(6);
+        generatedTrees.Should().HaveCount(8);
         var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
         registrations.Should().Contain("TestCommandHandler");
         registrations.Should().Contain("TestCommand");

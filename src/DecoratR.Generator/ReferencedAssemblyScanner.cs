@@ -8,6 +8,8 @@ internal static class ReferencedAssemblyScanner
     private const string HandlerRegistrationAttributeName = "DecoratRHandlerRegistrationAttribute";
     private const string HandlerServiceTypeAttributeName = "DecoratRHandlerServiceTypeAttribute";
     private const string DecoratorRegistrationAttributeName = "DecoratRDecoratorRegistrationAttribute";
+    private const string StreamHandlerServiceTypeAttributeName = "DecoratRStreamHandlerServiceTypeAttribute";
+    private const string StreamDecoratorRegistrationAttributeName = "DecoratRStreamDecoratorRegistrationAttribute";
 
     public static ReferencedRegistrationData Scan(Compilation compilation,
         CancellationToken cancellationToken = default)
@@ -15,6 +17,8 @@ internal static class ReferencedAssemblyScanner
         var registryClassNames = ImmutableArray.CreateBuilder<string>();
         var serviceTypes = ImmutableArray.CreateBuilder<HandlerMetadata>();
         var decorators = ImmutableArray.CreateBuilder<ReferencedDecoratorInfo>();
+        var streamServiceTypes = ImmutableArray.CreateBuilder<HandlerMetadata>();
+        var streamDecorators = ImmutableArray.CreateBuilder<ReferencedDecoratorInfo>();
 
         foreach (var referencedAssembly in compilation.SourceModule.ReferencedAssemblySymbols)
         {
@@ -45,13 +49,31 @@ internal static class ReferencedAssemblyScanner
                     var constraintArray = ParseSemicolonDelimited(constraintStr);
                     decorators.Add(new ReferencedDecoratorInfo(applyMethodName, order, constraintArray));
                 }
+                else if (attrName == StreamHandlerServiceTypeAttributeName && attr.ConstructorArguments.Length == 2 &&
+                         attr.ConstructorArguments[0].Value is string streamRequestType &&
+                         attr.ConstructorArguments[1].Value is string streamResponseType)
+                {
+                    var hierarchy = ReadNamedStringArgument(attr, "RequestTypeHierarchy");
+                    var hierarchyArray = ParseSemicolonDelimited(hierarchy);
+                    streamServiceTypes.Add(new HandlerMetadata(string.Empty, streamRequestType, streamResponseType, hierarchyArray));
+                }
+                else if (attrName == StreamDecoratorRegistrationAttributeName && attr.ConstructorArguments.Length == 2 &&
+                         attr.ConstructorArguments[0].Value is string streamApplyMethodName &&
+                         attr.ConstructorArguments[1].Value is int streamOrder)
+                {
+                    var constraintStr = ReadNamedStringArgument(attr, "RequestConstraintTypes");
+                    var constraintArray = ParseSemicolonDelimited(constraintStr);
+                    streamDecorators.Add(new ReferencedDecoratorInfo(streamApplyMethodName, streamOrder, constraintArray));
+                }
             }
         }
 
         return new ReferencedRegistrationData(
             registryClassNames.ToImmutable(),
             serviceTypes.ToImmutable(),
-            decorators.ToImmutable());
+            decorators.ToImmutable(),
+            streamServiceTypes.ToImmutable(),
+            streamDecorators.ToImmutable());
     }
 
     private static string ReadNamedStringArgument(AttributeData attr, string name)

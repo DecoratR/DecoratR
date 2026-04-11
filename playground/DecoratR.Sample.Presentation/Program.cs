@@ -22,5 +22,6 @@ app.MapScalarApiReference();
 
 app.MapGreetEndpoint();
 app.MapGetGreetingEndpoint();
+app.MapGetGreetingsStreamEndpoint();
 
 app.Run();

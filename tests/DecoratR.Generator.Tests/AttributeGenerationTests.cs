@@ -8,7 +8,7 @@ namespace DecoratR.Generator.Tests;
 public class AttributeGenerationTests : GeneratorTestBase
 {
     [Fact]
-    public void WithoutAssemblyAttribute_EmitsFiveAttributeSourcesOnly()
+    public void WithoutAssemblyAttribute_EmitsSevenAttributeSourcesOnly()
     {
         var source = """
                      using DecoratR;
@@ -24,12 +24,14 @@ public class AttributeGenerationTests : GeneratorTestBase
 
         var (_, generatedTrees) = RunGenerator(source);
 
-        generatedTrees.Should().HaveCount(5);
+        generatedTrees.Should().HaveCount(7);
         generatedTrees.Should().Contain(t => t.Contains("GenerateDecoratRMetadataAttribute"));
         generatedTrees.Should().Contain(t => t.Contains("GenerateDecoratRRegistrationsAttribute"));
         generatedTrees.Should().Contain(t => t.Contains("DecoratRHandlerRegistrationAttribute"));
         generatedTrees.Should().Contain(t => t.Contains("DecoratRHandlerServiceTypeAttribute"));
         generatedTrees.Should().Contain(t => t.Contains("DecoratRDecoratorRegistrationAttribute"));
+        generatedTrees.Should().Contain(t => t.Contains("DecoratRStreamHandlerServiceTypeAttribute"));
+        generatedTrees.Should().Contain(t => t.Contains("DecoratRStreamDecoratorRegistrationAttribute"));
         generatedTrees.Should().NotContain(t => t.Contains("DecoratRHandlerRegistry"));
     }
 
