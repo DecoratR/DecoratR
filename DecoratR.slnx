@@ -13,6 +13,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DecoratR.Generator.Tests/DecoratR.Generator.Tests.csproj" />
+    <Project Path="tests/DecoratR.Generator.Benchmarks/DecoratR.Generator.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <Project Path="examples/shared/Examples.Shared.csproj" />
