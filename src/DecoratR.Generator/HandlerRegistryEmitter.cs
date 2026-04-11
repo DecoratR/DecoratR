@@ -41,7 +41,8 @@ internal static class HandlerRegistryEmitter
         sb.Append("namespace ").Append(assemblyName).AppendLine(";");
         sb.AppendLine();
 
-        sb.Append("[global::System.CodeDom.Compiler.GeneratedCode(\"DecoratR.Generator\", \"").Append(DecoratRGeneratorVersion.Value).AppendLine("\")]");
+        sb.Append("[global::System.CodeDom.Compiler.GeneratedCode(\"DecoratR.Generator\", \"")
+            .Append(DecoratRGeneratorVersion.Value).AppendLine("\")]");
         sb.AppendLine("public static class DecoratRHandlerRegistry");
         sb.AppendLine("{");
 
