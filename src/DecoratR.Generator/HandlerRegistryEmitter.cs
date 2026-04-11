@@ -30,9 +30,12 @@ internal static class HandlerRegistryEmitter
                 .Append(handler.ResponseFullyQualifiedName)
                 .Append('"');
 
-            var hierarchyStr = BuildHierarchyString(handler.RequestTypeHierarchy);
-            if (hierarchyStr.Length > 0)
-                sb.Append(", RequestTypeHierarchy = \"").Append(hierarchyStr).Append('"');
+            if (handler.RequestTypeHierarchy.Length > 0)
+            {
+                sb.Append(", RequestTypeHierarchy = \"");
+                AppendSemicolonDelimited(sb, handler.RequestTypeHierarchy);
+                sb.Append('"');
+            }
 
             sb.AppendLine(")]");
         }
@@ -54,11 +57,11 @@ internal static class HandlerRegistryEmitter
 
         foreach (var handler in handlers)
             sb.Append("    /// <item><description><c>")
-                .Append(StripGlobalPrefix(handler.HandlerFullyQualifiedName))
+                .AppendStrippedGlobalPrefix(handler.HandlerFullyQualifiedName)
                 .Append("</c> handles <c>IRequestHandler&lt;")
-                .Append(StripGlobalPrefix(handler.RequestFullyQualifiedName))
+                .AppendStrippedGlobalPrefix(handler.RequestFullyQualifiedName)
                 .Append(", ")
-                .Append(StripGlobalPrefix(handler.ResponseFullyQualifiedName))
+                .AppendStrippedGlobalPrefix(handler.ResponseFullyQualifiedName)
                 .AppendLine("&gt;</c></description></item>");
 
         sb.AppendIndentedLine(1, "/// </list>");
@@ -91,26 +94,12 @@ internal static class HandlerRegistryEmitter
         return sb.ToString();
     }
 
-    private static string BuildHierarchyString(EquatableArray<string> hierarchy)
+    private static void AppendSemicolonDelimited(StringBuilder sb, EquatableArray<string> items)
     {
-        if (hierarchy.Length == 0) return "";
-
-        var sb = new StringBuilder();
-        var first = true;
-        foreach (var type in hierarchy)
+        for (var i = 0; i < items.Length; i++)
         {
-            if (!first) sb.Append(';');
-            sb.Append(type);
-            first = false;
+            if (i > 0) sb.Append(';');
+            sb.Append(items[i]);
         }
-
-        return sb.ToString();
-    }
-
-    private static string StripGlobalPrefix(string typeName)
-    {
-        return typeName.StartsWith("global::", StringComparison.OrdinalIgnoreCase)
-            ? typeName.Substring("global::".Length)
-            : typeName;
     }
 }
