@@ -10,5 +10,12 @@
     "labels": [
         "dependencies"
     ],
-    "packageRules": []
+    "packageRules": [
+        {
+            "matchDepNames": [
+                "dotnet-sdk"
+            ],
+            "enabled": false
+        }
+    ]
 }
