@@ -13,12 +13,12 @@
     <PackageTags>DecoratR;Decorator;CQRS;AOT</PackageTags>
     <PackageProjectUrl>https://github.com/decoratr/decoratr</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <!-- <PackageIcon>icon.png</PackageIcon> -->
+    <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Link="README.md" Pack="true" PackagePath="/" />
+    <None Include="..\..\README.md;..\..\logo.png" Link="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>
