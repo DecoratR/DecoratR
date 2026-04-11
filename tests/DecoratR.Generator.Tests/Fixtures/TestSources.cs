@@ -117,4 +117,84 @@ public static class TestSources
                 {body}
                 """;
     }
+
+    // ── Stream Request Types ────────────────────────────────────────────
+
+    public const string TestStreamQueryRecord = "public sealed record TestStreamQuery(string Filter) : IStreamRequest;";
+
+    // ── Stream Handlers ─────────────────────────────────────────────────
+
+    public const string TestStreamQueryHandler = """
+                                                 public sealed class TestStreamQueryHandler : IStreamRequestHandler<TestStreamQuery, string>
+                                                 {
+                                                     public async IAsyncEnumerable<string> HandleAsync(TestStreamQuery request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+                                                     {
+                                                         yield return "item1";
+                                                         yield return "item2";
+                                                     }
+                                                 }
+                                                 """;
+
+    // ── Stream Decorators ───────────────────────────────────────────────
+
+    public static string StreamDecorator(string name, int order, string constraint = "IStreamRequest")
+    {
+        return $$"""
+                 [Decorator(Order = {{order}})]
+                 public class {{name}}<TRequest, TResponse> : IStreamRequestHandler<TRequest, TResponse>
+                     where TRequest : {{constraint}}
+                 {
+                     private readonly IStreamRequestHandler<TRequest, TResponse> _inner;
+                     public {{name}}(IStreamRequestHandler<TRequest, TResponse> inner) => _inner = inner;
+                     public IAsyncEnumerable<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+                         => _inner.HandleAsync(request, cancellationToken);
+                 }
+                 """;
+    }
+
+    // ── Stream composite source builders ────────────────────────────────
+
+    public static string StreamHandlerOnly(string body = "")
+    {
+        return $"""
+                using DecoratR;
+
+                {MetadataAttribute}
+
+                {TestStreamQueryRecord}
+
+                {TestStreamQueryHandler}
+                {body}
+                """;
+    }
+
+    public static string StreamFullPath(string body = "")
+    {
+        return $"""
+                using DecoratR;
+
+                {RegistrationsAttribute}
+
+                {TestStreamQueryRecord}
+
+                {TestStreamQueryHandler}
+                {body}
+                """;
+    }
+
+    public static string MixedFullPath(string body = "")
+    {
+        return $"""
+                using DecoratR;
+
+                {RegistrationsAttribute}
+
+                {TestCommandRecord}
+                {TestCommandHandler}
+
+                {TestStreamQueryRecord}
+                {TestStreamQueryHandler}
+                {body}
+                """;
+    }
 }

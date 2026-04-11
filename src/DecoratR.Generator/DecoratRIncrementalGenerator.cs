@@ -17,8 +17,9 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
 
         // Build shared providers once — both paths reuse the same syntax tree scan
         var localHandlers = HandlerDetector.BuildProvider(context).Collect();
+        var localStreamHandlers = StreamHandlerDetector.BuildProvider(context).Collect();
 
-        var localDecorators = context.SyntaxProvider
+        var allDecorators = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 DecoratorAttributeMetadataName,
                 static (node, _) => node is ClassDeclarationSyntax,
@@ -27,10 +28,18 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             .Select(static (m, _) => m!)
             .Collect();
 
+        // Split decorators into regular and stream
+        var localDecorators = allDecorators.Select(static (decorators, _) =>
+            decorators.Where(static d => !d.IsStream).ToImmutableArray());
+        var localStreamDecorators = allDecorators.Select(static (decorators, _) =>
+            decorators.Where(static d => d.IsStream).ToImmutableArray());
+
         var assemblyName = context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Unknown");
 
-        RegisterHandlerOnlyPath(context, localHandlers, localDecorators, assemblyName);
-        RegisterFullPath(context, localHandlers, localDecorators, assemblyName);
+        RegisterHandlerOnlyPath(context, localHandlers, localDecorators, localStreamHandlers, localStreamDecorators,
+            assemblyName);
+        RegisterFullPath(context, localHandlers, localDecorators, localStreamHandlers, localStreamDecorators,
+            assemblyName);
     }
 
     private static void RegisterAttributes(IncrementalGeneratorInitializationContext context)
@@ -47,6 +56,10 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
                 AttributeEmitter.GenerateHandlerServiceTypeAttribute());
             ctx.AddSource("DecoratRDecoratorRegistrationAttribute.g.cs",
                 AttributeEmitter.GenerateDecoratorRegistrationAttribute());
+            ctx.AddSource("DecoratRStreamHandlerServiceTypeAttribute.g.cs",
+                AttributeEmitter.GenerateStreamHandlerServiceTypeAttribute());
+            ctx.AddSource("DecoratRStreamDecoratorRegistrationAttribute.g.cs",
+                AttributeEmitter.GenerateStreamDecoratorRegistrationAttribute());
         });
     }
 
@@ -54,6 +67,8 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         IncrementalGeneratorInitializationContext context,
         IncrementalValueProvider<ImmutableArray<HandlerMetadata>> localHandlers,
         IncrementalValueProvider<ImmutableArray<DecoratorMetadata>> localDecorators,
+        IncrementalValueProvider<ImmutableArray<HandlerMetadata>> localStreamHandlers,
+        IncrementalValueProvider<ImmutableArray<DecoratorMetadata>> localStreamDecorators,
         IncrementalValueProvider<string> assemblyName)
     {
         var hasAttribute = context.SyntaxProvider
@@ -67,15 +82,18 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         var combined = hasAttribute
             .Combine(localHandlers)
             .Combine(localDecorators)
+            .Combine(localStreamHandlers)
+            .Combine(localStreamDecorators)
             .Combine(assemblyName);
 
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
-            var (((hasAttr, handlers), decorators), name) = source;
+            var (((((hasAttr, handlers), decorators), streamHandlers), streamDecorators), name) = source;
             if (!hasAttr) return;
 
             var sortedDecorators = SortDecorators(decorators);
-            EmitHandlerRegistry(spc, name, handlers, sortedDecorators);
+            var sortedStreamDecorators = SortDecorators(streamDecorators);
+            EmitHandlerRegistry(spc, name, handlers, sortedDecorators, streamHandlers, sortedStreamDecorators);
         });
     }
 
@@ -83,6 +101,8 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         IncrementalGeneratorInitializationContext context,
         IncrementalValueProvider<ImmutableArray<HandlerMetadata>> localHandlers,
         IncrementalValueProvider<ImmutableArray<DecoratorMetadata>> localDecorators,
+        IncrementalValueProvider<ImmutableArray<HandlerMetadata>> localStreamHandlers,
+        IncrementalValueProvider<ImmutableArray<DecoratorMetadata>> localStreamDecorators,
         IncrementalValueProvider<string> assemblyName)
     {
         var hasAttribute = context.SyntaxProvider
@@ -100,17 +120,22 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
             .Combine(localHandlers)
             .Combine(referencedRegistrations)
             .Combine(localDecorators)
+            .Combine(localStreamHandlers)
+            .Combine(localStreamDecorators)
             .Combine(assemblyName);
 
         context.RegisterSourceOutput(combined, static (spc, source) =>
         {
-            var ((((hasAttr, localH), referenced), decorators), name) = source;
+            var ((((((hasAttr, localH), referenced), decorators), streamH), streamDec), name) = source;
             if (!hasAttr) return;
 
             var sortedLocalHandlers = SortHandlers(localH);
             var sortedDecorators = SortDecorators(decorators);
+            var sortedStreamHandlers = SortHandlers(streamH);
+            var sortedStreamDecorators = SortDecorators(streamDec);
 
-            EmitFullRegistrations(spc, name, sortedLocalHandlers, referenced, sortedDecorators);
+            EmitFullRegistrations(spc, name, sortedLocalHandlers, referenced, sortedDecorators,
+                sortedStreamHandlers, sortedStreamDecorators);
         });
     }
 
@@ -146,32 +171,39 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         SourceProductionContext spc,
         string assemblyName,
         ImmutableArray<HandlerMetadata> handlers,
-        DecoratorMetadata[] decorators)
+        DecoratorMetadata[] decorators,
+        ImmutableArray<HandlerMetadata> streamHandlers,
+        DecoratorMetadata[] streamDecorators)
     {
-        if (handlers.Length == 0 && decorators.Length == 0)
+        var totalHandlers = handlers.Length + streamHandlers.Length;
+        var totalDecorators = decorators.Length + streamDecorators.Length;
+
+        if (totalHandlers == 0 && totalDecorators == 0)
         {
             spc.ReportDiagnostic(Diagnostic.Create(
                 Diagnostics.NothingFound, Location.None, assemblyName));
             return;
         }
 
-        if (handlers.Length > 0)
+        if (totalHandlers > 0)
         {
             spc.ReportDiagnostic(Diagnostic.Create(
-                Diagnostics.HandlersDiscovered, Location.None, handlers.Length, assemblyName));
+                Diagnostics.HandlersDiscovered, Location.None, totalHandlers, assemblyName));
 
-            var sorted = SortHandlers(handlers);
+            var sortedHandlers = SortHandlers(handlers);
+            var sortedStreamHandlers = SortHandlers(streamHandlers);
             spc.AddSource("DecoratRHandlerRegistrations.g.cs",
-                HandlerRegistryEmitter.Generate(assemblyName, sorted));
+                HandlerRegistryEmitter.Generate(assemblyName, sortedHandlers, sortedStreamHandlers));
         }
 
-        if (decorators.Length > 0)
+        var allDecorators = MergeDecorators(decorators, streamDecorators);
+        if (allDecorators.Length > 0)
         {
             spc.ReportDiagnostic(Diagnostic.Create(
-                Diagnostics.DecoratorsDiscovered, Location.None, decorators.Length, assemblyName));
+                Diagnostics.DecoratorsDiscovered, Location.None, allDecorators.Length, assemblyName));
 
             spc.AddSource("DecoratRDecoratorRegistrations.g.cs",
-                DecoratorRegistryEmitter.Generate(assemblyName, decorators));
+                DecoratorRegistryEmitter.Generate(assemblyName, allDecorators));
         }
     }
 
@@ -180,10 +212,14 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         string assemblyName,
         HandlerMetadata[] localHandlers,
         ReferencedRegistrationData referenced,
-        DecoratorMetadata[] localDecorators)
+        DecoratorMetadata[] localDecorators,
+        HandlerMetadata[] localStreamHandlers,
+        DecoratorMetadata[] localStreamDecorators)
     {
-        var totalHandlerCount = localHandlers.Length + referenced.ServiceTypes.Length;
-        var totalDecoratorCount = localDecorators.Length + referenced.Decorators.Length;
+        var totalHandlerCount = localHandlers.Length + referenced.ServiceTypes.Length
+            + localStreamHandlers.Length + referenced.StreamServiceTypes.Length;
+        var totalDecoratorCount = localDecorators.Length + referenced.Decorators.Length
+            + localStreamDecorators.Length + referenced.StreamDecorators.Length;
 
         if (totalHandlerCount == 0 && totalDecoratorCount == 0)
             spc.ReportDiagnostic(Diagnostic.Create(
@@ -203,6 +239,27 @@ public sealed class DecoratRIncrementalGenerator : IIncrementalGenerator
         spc.AddSource("DecoratRRegistrations.g.cs",
             FullRegistrationEmitter.Generate(assemblyName, localHandlers,
                 referenced.RegistryClassNames, referenced.ServiceTypes,
-                localDecorators, referenced.Decorators));
+                localDecorators, referenced.Decorators,
+                localStreamHandlers, referenced.StreamServiceTypes,
+                localStreamDecorators, referenced.StreamDecorators));
+    }
+
+    private static DecoratorMetadata[] MergeDecorators(DecoratorMetadata[] a, DecoratorMetadata[] b)
+    {
+        if (a.Length == 0) return b;
+        if (b.Length == 0) return a;
+
+        var merged = new DecoratorMetadata[a.Length + b.Length];
+        Array.Copy(a, merged, a.Length);
+        Array.Copy(b, 0, merged, a.Length, b.Length);
+        Array.Sort(merged, static (x, y) =>
+        {
+            var cmp = x.Order.CompareTo(y.Order);
+            return cmp != 0
+                ? cmp
+                : string.Compare(x.DecoratorFullyQualifiedName, y.DecoratorFullyQualifiedName,
+                    StringComparison.Ordinal);
+        });
+        return merged;
     }
 }
