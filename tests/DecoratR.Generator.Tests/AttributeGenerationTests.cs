@@ -46,7 +46,8 @@ public class AttributeGenerationTests : GeneratorTestBase
         handlerAttribute.Should().Contain("GenerateDecoratRRegistrationsAttribute");
 
         var fullAttribute = generatedTrees.FindSource("class GenerateDecoratRRegistrationsAttribute");
-        fullAttribute.Should().Contain("Generates the <c>AddDecoratR()</c> registration entry point for the current composition root.");
+        fullAttribute.Should()
+            .Contain("Generates the <c>AddDecoratR()</c> registration entry point for the current composition root.");
         fullAttribute.Should().Contain("Apply this to the host or startup assembly.");
         fullAttribute.Should().Contain("registers handlers and applies decorators in pipeline order.");
     }

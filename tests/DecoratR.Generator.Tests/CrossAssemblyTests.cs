@@ -310,6 +310,7 @@ public class CrossAssemblyTests : GeneratorTestBase
         decoratorRegistry.Should().Contain("private static void DecorateService<TRequest, TResponse,");
         decoratorRegistry.Should().Contain("DynamicallyAccessedMembers");
         decoratorRegistry.Should().Contain("LoggingDecorator<TRequest, TResponse>");
-        decoratorRegistry.Should().Contain("DecorateService<TRequest, TResponse, global::LoggingDecorator<TRequest, TResponse>>(services)");
+        decoratorRegistry.Should()
+            .Contain("DecorateService<TRequest, TResponse, global::LoggingDecorator<TRequest, TResponse>>(services)");
     }
 }
