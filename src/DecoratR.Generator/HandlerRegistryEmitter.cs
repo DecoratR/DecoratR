@@ -41,7 +41,8 @@ internal static class HandlerRegistryEmitter
         sb.Append("namespace ").Append(assemblyName).AppendLine(";");
         sb.AppendLine();
 
-        sb.Append("[global::System.CodeDom.Compiler.GeneratedCode(\"DecoratR.Generator\", \"").Append(DecoratRGeneratorVersion.Value).AppendLine("\")]");
+        sb.Append("[global::System.CodeDom.Compiler.GeneratedCode(\"DecoratR.Generator\", \"")
+            .Append(DecoratRGeneratorVersion.Value).AppendLine("\")]");
         sb.AppendLine("public static class DecoratRHandlerRegistry");
         sb.AppendLine("{");
 
@@ -80,7 +81,11 @@ internal static class HandlerRegistryEmitter
         sb.AppendIndentedLine(1, "public sealed record HandlerRegistration(");
         sb.AppendIndentedLine(2, "global::System.Type ServiceType,");
         sb.AppendIndentedLine(2,
-            "[property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] global::System.Type ImplementationType);");
+            "[global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)]");
+        sb.AppendIndentedLine(2,
+            "[property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)]");
+        sb.AppendIndentedLine(2,
+            "global::System.Type ImplementationType);");
         sb.AppendLine("}");
 
         return sb.ToString();

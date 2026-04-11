@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/playground/">
     <Project Path="playground/DecoratR.Sample.Domain/DecoratR.Sample.Domain.csproj" />
+    <File Path="playground\Directory.Build.props" />
     <Project Path="playground/DecoratR.Sample.Application/DecoratR.Sample.Application.csproj" />
     <Project Path="playground/DecoratR.Sample.Infrastructure/DecoratR.Sample.Infrastructure.csproj" />
     <Project Path="playground/DecoratR.Sample.Presentation/DecoratR.Sample.Presentation.csproj" />
@@ -16,9 +17,7 @@
   <Folder Name="/examples/">
     <Project Path="examples/shared/Examples.Shared.csproj" />
     <Project Path="examples/simple-api/Examples.SimpleApi.csproj" />
-    <Project
-      Path="examples/clean-architecture/src/Examples.CleanArchitecture.Application/Examples.CleanArchitecture.Application.csproj" />
-    <Project
-      Path="examples/clean-architecture/src/Examples.CleanArchitecture.Api/Examples.CleanArchitecture.Api.csproj" />
+    <Project Path="examples/clean-architecture/src/Examples.CleanArchitecture.Application/Examples.CleanArchitecture.Application.csproj" />
+    <Project Path="examples/clean-architecture/src/Examples.CleanArchitecture.Api/Examples.CleanArchitecture.Api.csproj" />
   </Folder>
 </Solution>
