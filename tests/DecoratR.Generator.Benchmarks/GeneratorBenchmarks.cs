@@ -4,21 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 
 namespace DecoratR.Generator.Benchmarks;
 
-// | Method                                 | Mean     | Error   | StdDev  | Allocated |
-// |--------------------------------------- |---------:|--------:|--------:|----------:|
-// | '1 handler + 1 decorator (metadata)'   | 273.4 us | 5.03 us | 4.46 us |  264.2 KB |
-// | '5 handlers + 3 decorators (metadata)' | 359.6 us | 6.14 us | 7.07 us | 329.98 KB |
-// | 'Constrained decorators (full path)'   | 355.0 us | 2.85 us | 2.53 us | 328.27 KB |
-// | 'Cross-assembly composition'           | 206.8 us | 1.15 us | 1.08 us |    228 KB |
-
-// | Method                                 | Mean     | Error   | StdDev  | Allocated |
-// |--------------------------------------- |---------:|--------:|--------:|----------:|
-// | '1 handler + 1 decorator (metadata)'   | 230.1 us | 1.19 us | 1.06 us | 237.76 KB |
-// | '5 handlers + 3 decorators (metadata)' | 294.4 us | 1.35 us | 1.20 us |  290.3 KB |
-// | 'Constrained decorators (full path)'   | 306.2 us | 2.44 us | 2.29 us |  296.5 KB |
-// | 'Cross-assembly composition'           | 179.4 us | 1.36 us | 1.14 us | 204.44 KB
 [MemoryDiagnoser(false)]
-// [ShortRunJob]
 public class GeneratorBenchmarks
 {
     private CSharpCompilation _singleHandlerCompilation = null!;
