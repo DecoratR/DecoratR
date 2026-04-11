@@ -14,11 +14,19 @@ It uses a Roslyn source generator to find your handlers and decorators at build 
 
 ## The mental model
 
-DecoratR has three core concepts:
+DecoratR has two parallel pipelines that share the same decorator model.
+
+**Request/response pipeline**
 
 - `IRequest` is the message.
-- `IRequestHandler<TRequest, TResponse>` handles that message.
+- `IRequestHandler<TRequest, TResponse>` handles that message and returns a single `ValueTask<TResponse>`.
 - `[Decorator]` wraps handlers with cross-cutting behavior.
+
+**Streaming pipeline**
+
+- `IStreamRequest` is the message.
+- `IStreamRequestHandler<TRequest, TResponse>` handles that message and returns `IAsyncEnumerable<TResponse>`.
+- `[Decorator]` works identically — the generator detects which pipeline a decorator belongs to based on which interface it implements.
 
 At runtime, you resolve a handler from DI and get the fully wrapped chain:
 
@@ -217,6 +225,83 @@ public sealed class ValidationDecorator<TRequest, TResponse>(
 In that example, the decorator applies to command handlers only.
 
 This works across assembly boundaries because the generator records request type metadata at compile time.
+
+## Streaming pipeline
+
+The streaming pipeline mirrors the request/response pipeline. Use it when a handler needs to push multiple items over time rather than returning one value.
+
+### 1. Define a stream request
+
+```csharp
+using DecoratR;
+
+public sealed record GetItemsStreamQuery(string? Filter = null) : IStreamRequest;
+```
+
+### 2. Implement a stream handler
+
+```csharp
+using DecoratR;
+
+internal sealed class GetItemsStreamQueryHandler(IItemRepository repository)
+    : IStreamRequestHandler<GetItemsStreamQuery, string>
+{
+    public async IAsyncEnumerable<string> HandleAsync(
+        GetItemsStreamQuery query,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in repository.GetAllAsync(cancellationToken))
+        {
+            yield return item.Name;
+        }
+    }
+}
+```
+
+### 3. Add a stream decorator
+
+Stream decorators follow the same rules as regular decorators, but implement `IStreamRequestHandler<TRequest, TResponse>` instead:
+
+```csharp
+using DecoratR;
+using Microsoft.Extensions.Logging;
+
+[Decorator(Order = 1)]
+public sealed class StreamLoggingDecorator<TRequest, TResponse>(
+    IStreamRequestHandler<TRequest, TResponse> inner,
+    ILogger<StreamLoggingDecorator<TRequest, TResponse>> logger)
+    : IStreamRequestHandler<TRequest, TResponse>
+    where TRequest : IStreamRequest
+{
+    public async IAsyncEnumerable<TResponse> HandleAsync(
+        TRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("Starting stream for {RequestType}", typeof(TRequest).Name);
+
+        await foreach (var item in inner.HandleAsync(request, cancellationToken))
+        {
+            yield return item;
+        }
+
+        logger.LogInformation("Completed stream for {RequestType}", typeof(TRequest).Name);
+    }
+}
+```
+
+### 4. Use the stream handler
+
+```csharp
+app.MapGet("/items/stream", (
+    IStreamRequestHandler<GetItemsStreamQuery, string> handler,
+    string? filter,
+    CancellationToken cancellationToken) =>
+{
+    return handler.HandleAsync(new GetItemsStreamQuery(filter), cancellationToken);
+});
+```
+
+The two pipelines are fully isolated. Regular decorators never wrap stream handlers and vice versa.
 
 ## Handler lifetime
 
