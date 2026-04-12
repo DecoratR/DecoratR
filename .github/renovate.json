@@ -10,7 +10,9 @@
     "labels": [
         "dependencies"
     ],
-    "ignorePaths": [],
+    "nuget": {
+        "ignorePaths": []
+    },
     "packageRules": [
         {
             "matchDepNames": [
