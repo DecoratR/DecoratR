@@ -24,7 +24,8 @@
             "matchDepNames": [
                 "decoratR**"
             ],
-            "groupName": "DecoratR packages"
+            "groupName": "DecoratR packages",
+            "automerge": true
         }
     ]
 }
