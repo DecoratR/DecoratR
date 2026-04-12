@@ -1,5 +1,8 @@
 # DecoratR
 
+[![NuGet (DecoratR.Abstractions)](https://img.shields.io/nuget/v/DecoratR.Abstractions.svg)](https://www.nuget.org/profiles/DecoratR)
+[![License](https://img.shields.io/github/license/DecoratR/DecoratR.svg)](https://github.com/DecoratR/DecoratR/blob/main/LICENSE)
+
 DecoratR builds ordered decorator pipelines for .NET request handlers at compile time.
 
 You define requests, handlers, and open generic decorators. During the build, the source generator discovers them and emits a single `AddDecoratR()` extension method for `IServiceCollection`. The result is a focused handler model with compile time registration, deterministic decorator ordering, no runtime scanning, and no reflection driven DI wiring.
