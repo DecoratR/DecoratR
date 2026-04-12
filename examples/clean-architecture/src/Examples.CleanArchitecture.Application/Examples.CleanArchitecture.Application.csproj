@@ -9,7 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DecoratR.Abstractions" Version="0.0.6" />
+    <PackageReference Include="DecoratR.Abstractions" Version="0.0.8" />
     <PackageReference Include="DecoratR.Generator" Version="0.0.6">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
