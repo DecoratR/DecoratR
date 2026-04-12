@@ -19,6 +19,12 @@
                 "dotnet-sdk"
             ],
             "enabled": false
+        },
+        {
+            "matchDepNames": [
+                "decoratR**"
+            ],
+            "groupName": "DecoratR packages"
         }
     ]
 }
