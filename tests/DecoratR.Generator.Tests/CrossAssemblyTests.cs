@@ -10,23 +10,18 @@ public class CrossAssemblyTests : GeneratorTestBase
     [Fact]
     public void CompositionRoot_IteratesReferencedHandlerRegistry()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
-            TestSources.HandlerOnly(),
-            $"""
-             using DecoratR;
+        var (_, host) = RunTwoStageGenerator(TestSources.HandlerOnly(), TestSources.EmptyHost());
 
-             {TestSources.RegistrationsAttribute}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("HandlerLib.DecoratRHandlerRegistry.Handlers");
-        registrations.Should().Contain("// Register handlers from referenced assemblies");
+        host.ShouldCompile();
+        host.Registrations.Should().Contain("// Handlers from referenced assemblies");
+        host.Registrations.Should().Contain("foreach (var handler in global::HandlerLib.DecoratRHandlerRegistry.Handlers)");
+        host.Registrations.Should().Contain("services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ServiceType, handler.ImplementationType, options.Lifetime));");
     }
 
     [Fact]
     public void InternalHandlerInLibrary_NotDirectlyReferencedByCompositionRoot()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             """
             using DecoratR;
 
@@ -40,40 +35,29 @@ public class CrossAssemblyTests : GeneratorTestBase
                     => ValueTask.FromResult("Hello");
             }
             """,
-            $"""
-             using DecoratR;
+            TestSources.EmptyHost());
 
-             {TestSources.RegistrationsAttribute}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("HandlerLib.DecoratRHandlerRegistry.Handlers");
-        registrations.Should().NotContain("InternalHandler");
+        host.ShouldCompile();
+        host.Registrations.Should().Contain("global::HandlerLib.DecoratRHandlerRegistry.Handlers");
+        host.Registrations.Should().NotContain("InternalHandler");
     }
 
     [Fact]
-    public void Decorators_AppliedUsingReferencedServiceTypes()
+    public void LocalDecorators_AppliedToReferencedServiceTypes()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             TestSources.HandlerOnly(),
-            $"""
-             using DecoratR;
+            TestSources.EmptyHost(TestSources.Decorator("LoggingDecorator", 1)));
 
-             {TestSources.RegistrationsAttribute}
-
-             {TestSources.Decorator("LoggingDecorator", 1)}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("DecorateService<");
-        registrations.Should().Contain("LoggingDecorator");
-        registrations.Should().Contain("TestCommand");
+        host.ShouldCompile();
+        host.Registrations.GetPipeline("global::TestCommand", "string").GetPipelineSteps().Should().ContainSingle()
+            .Which.Should().Be("descriptor = Wrap<global::DecoratR.IRequestHandler<global::TestCommand, string>, global::LoggingDecorator<global::TestCommand, string>>(descriptor); // Order 1");
     }
 
     [Fact]
     public void MixedLocalAndReferencedHandlers_BothRegistered()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             """
             using DecoratR;
 
@@ -101,70 +85,98 @@ public class CrossAssemblyTests : GeneratorTestBase
             }
             """);
 
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("HandlerLib.DecoratRHandlerRegistry.Handlers");
-        registrations.Should().Contain("LocalHandler");
-        registrations.Should().Contain("// Register local handlers");
-        registrations.Should().Contain("// Register handlers from referenced assemblies");
+        host.ShouldCompile();
+        host.Registrations.Should().Contain("global::HandlerLib.DecoratRHandlerRegistry.Handlers");
+        host.Registrations.Should().Contain("typeof(global::LocalHandler)");
+        host.Registrations.Should().Contain("// Handlers declared in this assembly");
+        host.Registrations.Should().Contain("// Handlers from referenced assemblies");
+        host.Diagnostic("DCTR002").GetMessage().Should().Contain("2 handler(s)");
     }
 
     [Fact]
-    public void DecoratorInHandlerLib_DiscoveredViaApplyMethod()
+    public void DecoratorInHandlerLib_AppliedViaApplyMethod()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             TestSources.HandlerOnly(TestSources.Decorator("AppDecorator", 1)),
-            $"""
-             using DecoratR;
+            TestSources.EmptyHost());
 
-             {TestSources.RegistrationsAttribute}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("ApplyAppDecorator");
-        registrations.Should().Contain("TestCommand");
+        host.ShouldCompile();
+        host.Registrations.GetPipeline("global::TestCommand", "string").GetPipelineSteps().Should().ContainSingle()
+            .Which.Should().Be("descriptor = global::HandlerLib.DecoratRDecoratorRegistry.ApplyAppDecorator<global::TestCommand, string>(descriptor); // Order 1");
     }
 
     [Fact]
-    public void DecoratorInHandlerLib_EmitsDecoratorRegistrationAttribute()
+    public void DecoratorInHandlerLib_EmitsDecoratorAttribute()
     {
-        var source = TestSources.HandlerOnly(TestSources.Decorator("AppDecorator", 5));
+        var result = RunGenerator(TestSources.HandlerOnly(TestSources.Decorator("AppDecorator", 5)), "HandlerLib").ShouldCompile();
 
-        var (_, generatedTrees) = RunGenerator(source, "HandlerLib");
-
-        var registrations = generatedTrees.FindSource("DecoratRDecoratorRegistry");
-        registrations.Should().Contain("[assembly: global::DecoratR.DecoratRDecoratorRegistration(");
-        registrations.Should().Contain("ApplyAppDecorator");
-        registrations.Should().Contain(", 5)]");
+        result.DecoratorRegistry.Should().Contain(
+            "[assembly: global::DecoratR.Metadata.DecoratRDecorator(\"global::HandlerLib.DecoratRDecoratorRegistry.ApplyAppDecorator\", \"global::AppDecorator\", 5, false, RequestConstraints = \"global::DecoratR.IRequest\")]");
     }
 
     [Fact]
     public void MixedLocalAndReferencedDecorators_OrderedGlobally()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             TestSources.HandlerOnly(TestSources.Decorator("AppDecorator", 1)),
-            $"""
-             using DecoratR;
+            TestSources.EmptyHost(TestSources.Decorator("LocalDecorator", 2)));
 
-             {TestSources.RegistrationsAttribute}
+        host.ShouldCompile();
+        var steps = host.Registrations.GetPipeline("global::TestCommand", "string").GetPipelineSteps();
+        steps[0].Should().Contain("LocalDecorator", "Order 2 is innermost and applied first");
+        steps[1].Should().Contain("ApplyAppDecorator", "Order 1 is outermost and applied last");
+    }
 
-             {TestSources.Decorator("LocalDecorator", 2)}
-             """);
+    [Fact]
+    public void SameOrder_LocalAndReferencedDecorators_TieBreakByTypeName()
+    {
+        var (_, host) = RunTwoStageGenerator(
+            """
+            using DecoratR;
 
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("ApplyAppDecorator");
-        registrations.Should().Contain("LocalDecorator");
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
-        var decorateSection = registrations.GetDecoratorApplicationSection();
-        var localIdx = decorateSection.IndexOf("LocalDecorator", StringComparison.Ordinal);
-        var appIdx = decorateSection.IndexOf("ApplyAppDecorator", StringComparison.Ordinal);
-        localIdx.Should().BeLessThan(appIdx,
-            "because LocalDecorator (Order=2, innermost) should be registered before AppDecorator (Order=1, outermost)");
+            namespace Zzz;
+
+            [Decorator(Order = 1)]
+            public sealed class Dec<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> inner) : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default) => inner.HandleAsync(request, cancellationToken);
+            }
+            """,
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRRegistrations]
+
+            namespace Aaa;
+
+            public sealed record Cmd : IRequest;
+
+            public sealed class Handler : IRequestHandler<Cmd, string>
+            {
+                public ValueTask<string> HandleAsync(Cmd request, CancellationToken cancellationToken = default) => default;
+            }
+
+            [Decorator(Order = 1)]
+            public sealed class Dec<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> inner) : IRequestHandler<TRequest, TResponse>
+                where TRequest : IRequest
+            {
+                public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default) => inner.HandleAsync(request, cancellationToken);
+            }
+            """);
+
+        host.ShouldCompile();
+        var steps = host.Registrations.GetPipeline("global::Aaa.Cmd", "string").GetPipelineSteps();
+        steps[0].Should().Contain("ApplyZzz_Dec", "Zzz.Dec sorts after Aaa.Dec, so it is innermost and applied first");
+        steps[1].Should().Contain("global::Aaa.Dec<", "Aaa.Dec sorts first, so it is outermost and applied last");
     }
 
     [Fact]
     public void ReferencedDecorator_AppliedToBothLocalAndRemoteHandlers()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             """
             using DecoratR;
 
@@ -179,13 +191,11 @@ public class CrossAssemblyTests : GeneratorTestBase
             }
 
             [Decorator(Order = 1)]
-            public class AppDecorator<TRequest, TResponse> : IRequestHandler<TRequest, TResponse>
+            public class AppDecorator<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> inner) : IRequestHandler<TRequest, TResponse>
                 where TRequest : IRequest
             {
-                private readonly IRequestHandler<TRequest, TResponse> _inner;
-                public AppDecorator(IRequestHandler<TRequest, TResponse> inner) => _inner = inner;
                 public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
-                    => _inner.HandleAsync(request, cancellationToken);
+                    => inner.HandleAsync(request, cancellationToken);
             }
             """,
             """
@@ -202,63 +212,34 @@ public class CrossAssemblyTests : GeneratorTestBase
             }
             """);
 
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("ApplyAppDecorator");
-
-        var decorateSection = registrations.GetDecoratorApplicationSection();
-        decorateSection.Should().Contain("LocalCommand");
-        decorateSection.Should().Contain("RemoteCommand");
+        host.ShouldCompile();
+        host.Registrations.GetPipeline("global::LocalCommand", "string").Should().Contain("ApplyAppDecorator");
+        host.Registrations.GetPipeline("global::RemoteCommand", "string").Should().Contain("ApplyAppDecorator");
     }
 
     [Fact]
     public void DiagnosticCount_IncludesBothLocalAndReferencedDecorators()
     {
-        var (diagnostics, _) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             TestSources.HandlerOnly(TestSources.Decorator("AppDecorator", 1)),
-            $"""
-             using DecoratR;
+            TestSources.EmptyHost(TestSources.Decorator("LocalDecorator", 2)));
 
-             {TestSources.RegistrationsAttribute}
-
-             {TestSources.Decorator("LocalDecorator", 2)}
-             """);
-
-        var decoratorDiag = diagnostics.FirstOrDefault(d => d.Id == "DCTR003");
-        decoratorDiag.Should().NotBeNull();
-        decoratorDiag!.GetMessage().Should().Contain("2");
+        host.Diagnostic("DCTR003").GetMessage().Should().Contain("2 decorator(s)");
     }
 
     [Fact]
-    public void OnlyReferencedDecorators_AppliedViaGeneratedMethod()
+    public void HandlerLibWithoutDecorators_EmitsNoDecoratorRegistry()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
-            TestSources.HandlerOnly(TestSources.Decorator("AppDecorator", 1)),
-            $"""
-             using DecoratR;
+        var result = RunGenerator(TestSources.HandlerOnly(), "HandlerLib").ShouldCompile();
 
-             {TestSources.RegistrationsAttribute}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("ApplyAppDecorator");
-    }
-
-    [Fact]
-    public void HandlerLibWithoutDecorators_EmitsNoDecoratorAttributes()
-    {
-        var source = TestSources.HandlerOnly();
-
-        var (_, generatedTrees) = RunGenerator(source, "HandlerLib");
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().NotContain("[assembly: global::DecoratR.DecoratRDecoratorRegistration(");
-        generatedTrees.Should().NotContain(t => t.Contains("DecoratRDecoratorRegistry"));
+        result.Has(GenerationResult.DecoratorRegistryHint).Should().BeFalse();
+        result.HandlerRegistry.Should().NotContain("DecoratRDecorator(");
     }
 
     [Fact]
     public void DecoratorOnlyLib_DiscoveredByCompositionRoot()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             $"""
              using DecoratR;
 
@@ -266,51 +247,94 @@ public class CrossAssemblyTests : GeneratorTestBase
 
              {TestSources.Decorator("FooDecorator", 2)}
              """,
-            $"""
-             using DecoratR;
+            TestSources.FullPath());
 
-             {TestSources.RegistrationsAttribute}
-
-             {TestSources.TestCommandRecord}
-
-             {TestSources.TestCommandHandler}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("ApplyFooDecorator");
-        registrations.Should().Contain("TestCommand");
+        host.ShouldCompile();
+        host.Registrations.GetPipeline("global::TestCommand", "string").Should().Contain("ApplyFooDecorator");
+        host.Registrations.Should().NotContain("// Handlers from referenced assemblies");
     }
 
     [Fact]
     public void InternalDecorator_AppliedViaGeneratedMethodNotDirectReference()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             TestSources.HandlerOnly(TestSources.InternalDecorator("InternalDecorator", 1)),
-            $"""
-             using DecoratR;
+            TestSources.EmptyHost());
 
-             {TestSources.RegistrationsAttribute}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("ApplyInternalDecorator");
-        registrations.Should().NotContain("global::InternalDecorator<");
+        host.ShouldCompile();
+        host.Registrations.Should().Contain("ApplyInternalDecorator<global::TestCommand, string>(descriptor)");
+        host.Registrations.Should().NotContain("global::InternalDecorator<");
     }
 
     [Fact]
-    public void DecoratorRegistry_ContainsApplyMethodAndDecorateServiceCore()
+    public void DecoratorRegistry_ContainsApplyMethodAndRuntimeHelpers()
     {
-        var source = TestSources.HandlerOnly(TestSources.Decorator("LoggingDecorator", 1));
+        var registry = RunGenerator(TestSources.HandlerOnly(TestSources.Decorator("LoggingDecorator", 1)), "HandlerLib").ShouldCompile().DecoratorRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source, "HandlerLib");
+        registry.Should().Contain("public static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor ApplyLoggingDecorator<TRequest, TResponse>(");
+        registry.Should().Contain("return Wrap<global::DecoratR.IRequestHandler<TRequest, TResponse>, global::LoggingDecorator<TRequest, TResponse>>(inner);");
+        registry.Should().Contain("private static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor Wrap<TService, [");
+        registry.Should().Contain("DynamicallyAccessedMembers");
+        registry.Should().Contain("CreateInnerFactory(");
+        registry.Should().NotContain("Decorate(", "libraries only wrap descriptors; the composition root owns the service collection");
+    }
 
-        var decoratorRegistry = generatedTrees.FindSource("DecoratRDecoratorRegistry");
-        decoratorRegistry.Should().Contain("public static void ApplyLoggingDecorator<TRequest, TResponse>");
-        decoratorRegistry.Should().Contain("IServiceCollection services");
-        decoratorRegistry.Should().Contain("private static void DecorateService<TRequest, TResponse,");
-        decoratorRegistry.Should().Contain("DynamicallyAccessedMembers");
-        decoratorRegistry.Should().Contain("LoggingDecorator<TRequest, TResponse>");
-        decoratorRegistry.Should()
-            .Contain("DecorateService<TRequest, TResponse, global::LoggingDecorator<TRequest, TResponse>>(services)");
+    [Fact]
+    public void DecoratorsWithCollidingApplyNames_GetUniqueSuffix()
+    {
+        var result = RunGenerator("""
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+            namespace A.B
+            {
+                [Decorator(Order = 1)]
+                public sealed class C<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> inner) : IRequestHandler<TRequest, TResponse>
+                    where TRequest : IRequest
+                {
+                    public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default) => inner.HandleAsync(request, cancellationToken);
+                }
+            }
+
+            namespace A_B
+            {
+                [Decorator(Order = 2)]
+                public sealed class C<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> inner) : IRequestHandler<TRequest, TResponse>
+                    where TRequest : IRequest
+                {
+                    public ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default) => inner.HandleAsync(request, cancellationToken);
+                }
+            }
+            """, "HandlerLib").ShouldCompile();
+
+        result.DecoratorRegistry.Should().Contain(" ApplyA_B_C<TRequest, TResponse>(");
+        result.DecoratorRegistry.Should().Contain(" ApplyA_B_C_2<TRequest, TResponse>(");
+    }
+
+    [Fact]
+    public void InternalRequestTypeInLibrary_IsSkippedInHostWithWarning()
+    {
+        var (library, host) = RunTwoStageGenerator(
+            """
+            using DecoratR;
+
+            [assembly: DecoratR.GenerateDecoratRMetadata]
+
+            internal sealed record InternalCommand : IRequest;
+
+            internal sealed class InternalHandler : IRequestHandler<InternalCommand, string>
+            {
+                public ValueTask<string> HandleAsync(InternalCommand request, CancellationToken cancellationToken = default) => default;
+            }
+            """,
+            TestSources.EmptyHost(TestSources.Decorator("LoggingDecorator", 1)));
+
+        library.Diagnostics.Should().ContainSingle(d => d.Id == "DCTR013");
+
+        host.ShouldCompile();
+        host.Diagnostics.Should().ContainSingle(d => d.Id == "DCTR011").Which.GetMessage().Should().Contain("InternalCommand");
+        host.Registrations.Should().NotContain("Decorate(services");
+        host.Registrations.Should().Contain("// Skipped: decorators for global::DecoratR.IRequestHandler<global::InternalCommand, string>");
     }
 }

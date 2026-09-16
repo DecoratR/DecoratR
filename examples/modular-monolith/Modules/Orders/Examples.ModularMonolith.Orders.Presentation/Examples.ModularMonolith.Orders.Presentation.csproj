@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\src\DecoratR.Abstractions\DecoratR.Abstractions.csproj" />
+    <ProjectReference Include="..\Examples.ModularMonolith.Orders.Contracts\Examples.ModularMonolith.Orders.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -10,91 +10,64 @@ public class StreamDecoratorTests : GeneratorTestBase
     [Fact]
     public void StreamDecorator_IsRecognizedAsStream()
     {
-        var source = TestSources.StreamHandlerOnly(TestSources.StreamDecorator("StreamLoggingDecorator", 1));
+        var registry = RunGenerator(TestSources.StreamHandlerOnly(TestSources.StreamDecorator("StreamLoggingDecorator", 1))).ShouldCompile().DecoratorRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var decoratorRegistry = generatedTrees.FindSource("DecoratRDecoratorRegistry");
-        decoratorRegistry.Should().Contain("ApplyStreamStreamLoggingDecorator");
-        decoratorRegistry.Should().Contain("DecorateStreamService<");
-        decoratorRegistry.Should().Contain("IStreamRequestHandler");
+        registry.Should().Contain("ApplyStreamLoggingDecorator<TRequest, TResponse>(");
+        registry.Should().Contain("return Wrap<global::DecoratR.IStreamRequestHandler<TRequest, TResponse>, global::StreamLoggingDecorator<TRequest, TResponse>>(inner);");
+        registry.Should().Contain("where TRequest : global::DecoratR.IStreamRequest");
     }
 
     [Fact]
-    public void StreamDecorator_AssemblyAttribute_UsesStreamAttribute()
+    public void StreamDecorator_AssemblyAttribute_HasIsStreamTrue()
     {
-        var source = TestSources.StreamHandlerOnly(TestSources.StreamDecorator("StreamLoggingDecorator", 1));
+        var registry = RunGenerator(TestSources.StreamHandlerOnly(TestSources.StreamDecorator("StreamLoggingDecorator", 1))).DecoratorRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var decoratorRegistry = generatedTrees.FindSource("DecoratRDecoratorRegistry");
-        decoratorRegistry.Should().Contain("DecoratRStreamDecoratorRegistration");
+        registry.Should().Contain("\"global::StreamLoggingDecorator\", 1, true, RequestConstraints = \"global::DecoratR.IStreamRequest\")]");
     }
 
     [Fact]
     public void RegularDecorator_IsNotRecognizedAsStream()
     {
-        var source = TestSources.HandlerOnly(TestSources.Decorator("LoggingDecorator", 1));
+        var registry = RunGenerator(TestSources.HandlerOnly(TestSources.Decorator("LoggingDecorator", 1))).ShouldCompile().DecoratorRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var decoratorRegistry = generatedTrees.FindSource("DecoratRDecoratorRegistry");
-        decoratorRegistry.Should().Contain("ApplyLoggingDecorator");
-        decoratorRegistry.Should().NotContain("ApplyStreamLoggingDecorator");
-        decoratorRegistry.Should().Contain("DecorateService<");
-        decoratorRegistry.Should().NotContain("DecorateStreamService<");
+        registry.Should().Contain("\"global::LoggingDecorator\", 1, false, ");
+        registry.Should().Contain("Wrap<global::DecoratR.IRequestHandler<TRequest, TResponse>,");
+        registry.Should().NotContain("IStreamRequestHandler");
     }
 
     [Fact]
     public void StreamDecorator_OrderIsRespected()
     {
-        var source = $"""
-                      using DecoratR;
+        var registrations = RunGenerator(TestSources.StreamFullPath(
+            TestSources.StreamDecorator("InnerStreamDecorator", 2) + "\n" +
+            TestSources.StreamDecorator("OuterStreamDecorator", 1))).ShouldCompile().Registrations;
 
-                      {TestSources.RegistrationsAttribute}
-
-                      {TestSources.TestStreamQueryRecord}
-                      {TestSources.TestStreamQueryHandler}
-
-                      {TestSources.StreamDecorator("InnerStreamDecorator", 2)}
-                      {TestSources.StreamDecorator("OuterStreamDecorator", 1)}
-                      """;
-
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        var decorateSection = registrations.GetSectionBetween("// Apply stream decorators", "return services;");
-
-        var innerIdx = decorateSection.IndexOf("InnerStreamDecorator", StringComparison.Ordinal);
-        var outerIdx = decorateSection.IndexOf("OuterStreamDecorator", StringComparison.Ordinal);
-        innerIdx.Should().BeLessThan(outerIdx,
-            "because InnerStreamDecorator (Order=2) should be applied first (closer to handler)");
+        var steps = registrations.GetPipeline("global::TestStreamQuery", "string", isStream: true).GetPipelineSteps();
+        steps[0].Should().Contain("InnerStreamDecorator");
+        steps[1].Should().Contain("OuterStreamDecorator");
     }
 
     [Fact]
     public void MixedDecorators_BothTypesEmitted()
     {
-        var source = $"""
-                      using DecoratR;
+        var registry = RunGenerator($"""
+            using DecoratR;
 
-                      {TestSources.MetadataAttribute}
+            {TestSources.MetadataAttribute}
 
-                      {TestSources.TestCommandRecord}
-                      {TestSources.TestCommandHandler}
+            {TestSources.TestCommandRecord}
+            {TestSources.TestCommandHandler}
 
-                      {TestSources.TestStreamQueryRecord}
-                      {TestSources.TestStreamQueryHandler}
+            {TestSources.TestStreamQueryRecord}
+            {TestSources.TestStreamQueryHandler}
 
-                      {TestSources.Decorator("RegularDecorator", 1)}
-                      {TestSources.StreamDecorator("StreamDecorator", 1)}
-                      """;
+            {TestSources.Decorator("RegularDecorator", 1)}
+            {TestSources.StreamDecorator("StreamDecorator", 1)}
+            """).ShouldCompile().DecoratorRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var decoratorRegistry = generatedTrees.FindSource("DecoratRDecoratorRegistry");
-        decoratorRegistry.Should().Contain("ApplyRegularDecorator");
-        decoratorRegistry.Should().Contain("ApplyStreamStreamDecorator");
-        decoratorRegistry.Should().Contain("DecorateService<");
-        decoratorRegistry.Should().Contain("DecorateStreamService<");
+        registry.Should().Contain("ApplyRegularDecorator<TRequest, TResponse>(");
+        registry.Should().Contain("ApplyStreamDecorator<TRequest, TResponse>(");
+        registry.Should().Contain("Wrap<global::DecoratR.IRequestHandler<TRequest, TResponse>, global::RegularDecorator<TRequest, TResponse>>");
+        registry.Should().Contain("Wrap<global::DecoratR.IStreamRequestHandler<TRequest, TResponse>, global::StreamDecorator<TRequest, TResponse>>");
     }
 }

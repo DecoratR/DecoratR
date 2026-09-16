@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Examples.ModularMonolith.Catalog.Application\Examples.ModularMonolith.Catalog.Application.csproj" />
+    <ProjectReference Include="..\Examples.ModularMonolith.Catalog.Domain\Examples.ModularMonolith.Catalog.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
