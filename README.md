@@ -13,26 +13,31 @@ The full guide is available at [https://github.com/DecoratR/DecoratR/blob/main/d
 
 - Cross cutting behavior such as logging, validation, timing, retries, and exception handling moves out of handlers and into reusable decorators.
 - Registration happens at build time, so startup stays simple and the generated code is easy to inspect.
-- Decorators can target all requests or only specific request families through generic constraints.
+- Decorators can target all requests or only specific request families through generic constraints on `TRequest` and `TResponse`.
 - Request response handlers and stream handlers are both supported.
 - Multi project solutions work without manual registration glue because metadata flows across assembly references.
+- Misconfigurations (a decorator without a handler interface, two handlers for the same request, an inaccessible handler, …) are reported as compiler diagnostics instead of failing at runtime.
 - The generated registration code is friendly to AOT and trimming scenarios.
+
+## Requirements
+
+- .NET 10 SDK (the generator targets the Roslyn version that ships with it). Projects can target `net8.0`, `net9.0` or `net10.0`.
 
 ## Packages
 
-1. [`DecoratR.Abstractions`](https://www.nuget.org/packages/DecoratR.Abstractions) contains `IRequest`, `IRequestHandler<TRequest, TResponse>`, `IStreamRequest`, `IStreamRequestHandler<TRequest, TResponse>`, and `DecoratorAttribute`.
+1. [`DecoratR.Abstractions`](https://www.nuget.org/packages/DecoratR.Abstractions) contains `IRequest`, `IRequestHandler<TRequest, TResponse>`, `IStreamRequest`, `IStreamRequestHandler<TRequest, TResponse>`, `DecoratorAttribute`, `DecoratROptions` and the assembly attributes that switch generation on.
 2. [`DecoratR.Generator`](https://www.nuget.org/packages/DecoratR.Generator) contains the Roslyn source generator that emits registration code and cross assembly metadata.
 
 ## Install
 
-Most applications that declare handlers or decorators reference both packages.
+Every project that takes part in DecoratR (handler libraries and the composition root alike) references both packages.
 
 ```bash
 dotnet add package DecoratR.Abstractions
 dotnet add package DecoratR.Generator
 ```
 
-If a host project only composes handlers and decorators from referenced assemblies, `DecoratR.Generator` is enough in that host project.
+All projects of a solution must use the same DecoratR version, because the metadata that flows between assemblies is versioned with the packages.
 
 ## Quick Start
 
@@ -97,14 +102,12 @@ using DecoratR;
 ### 5. Register DecoratR
 
 ```csharp
-using MyApp;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDecoratR();
 ```
 
-The injected `IRequestHandler<GetGreetingQuery, string>` will now be the fully decorated pipeline.
+`AddDecoratR()` is generated into the `Microsoft.Extensions.DependencyInjection` namespace, so it is available wherever `IServiceCollection` is. The injected `IRequestHandler<GetGreetingQuery, string>` is the fully decorated pipeline.
 
 ## What You Get
 
@@ -112,7 +115,7 @@ DecoratR generates `AddDecoratR()` for the host assembly and applies decorators 
 
 1. Lower `Order` values are outermost.
 2. Higher `Order` values run closer to the handler.
-3. When two decorators share the same `Order`, DecoratR sorts them alphabetically by fully qualified type name.
+3. When two decorators share the same `Order`, DecoratR sorts them alphabetically by fully qualified type name. This holds across assemblies.
 
 For example, a pipeline with `Order = 1` exception handling and `Order = 2` validation runs like this:
 
@@ -127,8 +130,6 @@ Regular and stream pipelines are isolated. A regular decorator never wraps a str
 Handlers are registered as `Transient` by default. You can override the lifetime for all generated registrations.
 
 ```csharp
-using Microsoft.Extensions.DependencyInjection;
-
 builder.Services.AddDecoratR(options =>
 {
     options.Lifetime = ServiceLifetime.Scoped;
@@ -141,6 +142,7 @@ Decorators inherit the lifetime of the handler they wrap.
 
 - Simple API example: [https://github.com/DecoratR/DecoratR/tree/main/examples/simple-api](https://github.com/DecoratR/DecoratR/tree/main/examples/simple-api)
 - Clean Architecture example: [https://github.com/DecoratR/DecoratR/tree/main/examples/clean-architecture](https://github.com/DecoratR/DecoratR/tree/main/examples/clean-architecture)
+- Modular Monolith example (two Clean Architecture modules composed by one API): [https://github.com/DecoratR/DecoratR/tree/main/examples/modular-monolith](https://github.com/DecoratR/DecoratR/tree/main/examples/modular-monolith)
 
 ## License
 

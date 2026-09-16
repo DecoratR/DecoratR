@@ -10,122 +10,80 @@ public class StreamHandlerDiscoveryTests : GeneratorTestBase
     [Fact]
     public void StreamHandler_IsDiscoveredAndRegistered()
     {
-        var source = TestSources.StreamHandlerOnly();
+        var registry = RunGenerator(TestSources.StreamHandlerOnly()).ShouldCompile().HandlerRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().Contain("TestStreamQueryHandler");
-        registrations.Should().Contain("TestStreamQuery");
-        registrations.Should().Contain("IStreamRequestHandler");
-        registrations.Should().Contain("StreamHandlers");
+        registry.Should().Contain("new(typeof(global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>), typeof(global::TestStreamQueryHandler)),");
+        registry.Should().Contain("[assembly: global::DecoratR.Metadata.DecoratRHandler(\"global::TestStreamQueryHandler\", \"global::TestStreamQuery\", \"string\", true, ");
     }
 
     [Fact]
     public void AbstractStreamHandler_IsSkipped()
     {
-        var source = """
-                     using DecoratR;
+        var result = RunGenerator("""
+            using DecoratR;
 
-                     [assembly: DecoratR.GenerateDecoratRMetadata]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
-                     public sealed record TestStreamQuery(string Filter) : IStreamRequest;
+            public sealed record TestStreamQuery(string Filter) : IStreamRequest;
 
-                     public abstract class AbstractStreamHandler : IStreamRequestHandler<TestStreamQuery, string>
-                     {
-                         public abstract IAsyncEnumerable<string> HandleAsync(TestStreamQuery request, CancellationToken cancellationToken = default);
-                     }
-                     """;
+            public abstract class AbstractStreamHandler : IStreamRequestHandler<TestStreamQuery, string>
+            {
+                public abstract IAsyncEnumerable<string> HandleAsync(TestStreamQuery request, CancellationToken cancellationToken = default);
+            }
+            """);
 
-        var (diagnostics, _) = RunGenerator(source);
-
-        diagnostics.Should().Contain(d => d.Id == "DCTR001");
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "DCTR001");
     }
 
     [Fact]
     public void OpenGenericStreamHandler_IsSkipped()
     {
-        var source = """
-                     using DecoratR;
+        var result = RunGenerator("""
+            using DecoratR;
 
-                     [assembly: DecoratR.GenerateDecoratRMetadata]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
-                     public sealed record TestStreamQuery(string Filter) : IStreamRequest;
+            public sealed record TestStreamQuery(string Filter) : IStreamRequest;
 
-                     public class GenericHandler<T> : IStreamRequestHandler<TestStreamQuery, string>
-                     {
-                         public async IAsyncEnumerable<string> HandleAsync(TestStreamQuery request, CancellationToken cancellationToken = default)
-                         {
-                             yield return "item";
-                         }
-                     }
-                     """;
+            public class GenericHandler<T> : IStreamRequestHandler<TestStreamQuery, string>
+            {
+                public async IAsyncEnumerable<string> HandleAsync(TestStreamQuery request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+                {
+                    await Task.Yield();
+                    yield return "item";
+                }
+            }
+            """);
 
-        var (diagnostics, _) = RunGenerator(source);
-
-        diagnostics.Should().Contain(d => d.Id == "DCTR001");
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "DCTR001");
     }
 
     [Fact]
     public void MixedHandlers_BothDiscovered()
     {
-        var source = """
-                     using DecoratR;
+        var registry = RunGenerator($"""
+            using DecoratR;
 
-                     [assembly: DecoratR.GenerateDecoratRMetadata]
+            {TestSources.MetadataAttribute}
 
-                     public sealed record TestCommand(string Name) : IRequest;
-                     public sealed record TestStreamQuery(string Filter) : IStreamRequest;
+            {TestSources.TestCommandRecord}
+            {TestSources.TestStreamQueryRecord}
 
-                     public sealed class TestCommandHandler : IRequestHandler<TestCommand, string>
-                     {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
-                             => ValueTask.FromResult("Hello");
-                     }
+            {TestSources.TestCommandHandler}
 
-                     public sealed class TestStreamQueryHandler : IStreamRequestHandler<TestStreamQuery, string>
-                     {
-                         public async IAsyncEnumerable<string> HandleAsync(TestStreamQuery request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-                         {
-                             yield return "item";
-                         }
-                     }
-                     """;
+            {TestSources.TestStreamQueryHandler}
+            """).ShouldCompile().HandlerRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().Contain("TestCommandHandler");
-        registrations.Should().Contain("IRequestHandler<global::TestCommand, string>");
-        registrations.Should().Contain("TestStreamQueryHandler");
-        registrations.Should().Contain("IStreamRequestHandler<global::TestStreamQuery, string>");
+        registry.Should().Contain("IRequestHandler<global::TestCommand, string>), typeof(global::TestCommandHandler)");
+        registry.Should().Contain("IStreamRequestHandler<global::TestStreamQuery, string>), typeof(global::TestStreamQueryHandler)");
     }
 
     [Fact]
-    public void DecoratorAnnotatedStreamHandler_IsExcludedFromStreamHandlers()
+    public void DecoratorAnnotatedStreamHandler_IsExcludedFromHandlers()
     {
-        var source = $$"""
-                      using DecoratR;
+        var registry = RunGenerator(TestSources.StreamHandlerOnly(TestSources.StreamDecorator("LoggingStreamDecorator", 1))).ShouldCompile().HandlerRegistry;
 
-                      [assembly: DecoratR.GenerateDecoratRMetadata]
-
-                      public sealed record TestStreamQuery(string Filter) : IStreamRequest;
-
-                      public sealed class TestStreamQueryHandler : IStreamRequestHandler<TestStreamQuery, string>
-                      {
-                          public async IAsyncEnumerable<string> HandleAsync(TestStreamQuery request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-                          {
-                              yield return "item";
-                          }
-                      }
-
-                      {{TestSources.StreamDecorator("LoggingStreamDecorator", 1)}}
-                      """;
-
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().Contain("TestStreamQueryHandler");
-        registrations.Should().NotContain("LoggingStreamDecorator");
+        registry.Should().Contain("TestStreamQueryHandler");
+        registry.Should().NotContain("LoggingStreamDecorator");
     }
 }

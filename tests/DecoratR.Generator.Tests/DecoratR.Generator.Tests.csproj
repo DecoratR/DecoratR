@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="AwesomeAssertions" Version="9.6.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
@@ -8,12 +12,19 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <!-- The test host may use a newer Roslyn than the generator is compiled against; that mirrors real SDKs. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DecoratR.Generator\DecoratR.Generator.csproj" />
     <ProjectReference Include="..\..\src\DecoratR.Abstractions\DecoratR.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Snapshot files are compared as text, never compiled. -->
+    <Compile Remove="Snapshots\**" />
+    <None Include="Snapshots\**" />
   </ItemGroup>
 
 </Project>

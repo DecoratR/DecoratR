@@ -10,108 +10,47 @@ public class StreamRegistrationTests : GeneratorTestBase
     [Fact]
     public void StreamHandler_RegisteredInAddDecoratR()
     {
-        var source = TestSources.StreamFullPath();
+        var registrations = RunGenerator(TestSources.StreamFullPath()).ShouldCompile().Registrations;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("// Register local stream handlers");
-        registrations.Should().Contain("IStreamRequestHandler<global::TestStreamQuery, string>");
-        registrations.Should().Contain("TestStreamQueryHandler");
+        registrations.Should().Contain("typeof(global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>),");
+        registrations.Should().Contain("typeof(global::TestStreamQueryHandler),");
     }
 
     [Fact]
-    public void StreamHandlerAndDecorator_GeneratesAddDecoratRWithStreamDecoration()
+    public void StreamHandlerAndDecorator_GeneratesStreamPipeline()
     {
-        var source = TestSources.StreamFullPath(TestSources.StreamDecorator("StreamLoggingDecorator", 1));
+        var registrations = RunGenerator(TestSources.StreamFullPath(TestSources.StreamDecorator("StreamLoggingDecorator", 1))).ShouldCompile().Registrations;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("// Register local stream handlers");
-        registrations.Should().Contain("IStreamRequestHandler<global::TestStreamQuery, string>");
-        registrations.Should().Contain("DecorateStreamService<");
-        registrations.Should().Contain("StreamLoggingDecorator");
+        registrations.GetPipeline("global::TestStreamQuery", "string", isStream: true).Should().Contain(
+            "Wrap<global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>, global::StreamLoggingDecorator<global::TestStreamQuery, string>>(descriptor);");
     }
 
     [Fact]
     public void MixedHandlersAndDecorators_AllRegisteredCorrectly()
     {
-        var source = $"""
-                      using DecoratR;
+        var registrations = RunGenerator(TestSources.MixedFullPath(
+            TestSources.Decorator("LoggingDecorator", 1) + "\n" +
+            TestSources.StreamDecorator("StreamLoggingDecorator", 1))).ShouldCompile().Registrations;
 
-                      {TestSources.RegistrationsAttribute}
-
-                      {TestSources.TestCommandRecord}
-                      {TestSources.TestCommandHandler}
-
-                      {TestSources.TestStreamQueryRecord}
-                      {TestSources.TestStreamQueryHandler}
-
-                      {TestSources.Decorator("LoggingDecorator", 1)}
-                      {TestSources.StreamDecorator("StreamLoggingDecorator", 1)}
-                      """;
-
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-
-        // Regular pipeline
-        registrations.Should().Contain("// Register local handlers");
-        registrations.Should().Contain("IRequestHandler<global::TestCommand, string>");
-        registrations.Should().Contain("// Apply decorators");
-        registrations.Should().Contain("DecorateService<");
-
-        // Stream pipeline
-        registrations.Should().Contain("// Register local stream handlers");
-        registrations.Should().Contain("IStreamRequestHandler<global::TestStreamQuery, string>");
-        registrations.Should().Contain("// Apply stream decorators");
-        registrations.Should().Contain("DecorateStreamService<");
+        registrations.GetPipeline("global::TestCommand", "string").GetPipelineSteps().Should().ContainSingle().Which.Should().Contain("LoggingDecorator<");
+        registrations.GetPipeline("global::TestStreamQuery", "string", isStream: true).GetPipelineSteps().Should().ContainSingle().Which.Should().Contain("StreamLoggingDecorator<");
     }
 
     [Fact]
     public void RegularDecorator_DoesNotApplyToStreamHandlers()
     {
-        var source = $"""
-                      using DecoratR;
+        var registrations = RunGenerator(TestSources.StreamFullPath(TestSources.Decorator("RegularDecorator", 1))).ShouldCompile().Registrations;
 
-                      {TestSources.RegistrationsAttribute}
-
-                      {TestSources.TestStreamQueryRecord}
-                      {TestSources.TestStreamQueryHandler}
-
-                      {TestSources.Decorator("RegularDecorator", 1)}
-                      """;
-
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("// Register local stream handlers");
-        // Regular decorator should NOT appear in any DecorateStreamService call
-        registrations.Should().NotContain("DecorateStreamService<");
+        registrations.TryGetPipeline("global::TestStreamQuery", "string", isStream: true).Should().BeNull();
         registrations.Should().NotContain("RegularDecorator");
     }
 
     [Fact]
     public void StreamDecorator_DoesNotApplyToRegularHandlers()
     {
-        var source = $"""
-                      using DecoratR;
+        var registrations = RunGenerator(TestSources.FullPath(TestSources.StreamDecorator("StreamOnlyDecorator", 1))).ShouldCompile().Registrations;
 
-                      {TestSources.RegistrationsAttribute}
-
-                      {TestSources.TestCommandRecord}
-                      {TestSources.TestCommandHandler}
-
-                      {TestSources.StreamDecorator("StreamOnlyDecorator", 1)}
-                      """;
-
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("// Register local handlers");
-        // Stream decorator should NOT appear in any DecorateService call
-        registrations.Should().NotContain("DecorateService<");
+        registrations.TryGetPipeline("global::TestCommand", "string").Should().BeNull();
         registrations.Should().NotContain("StreamOnlyDecorator");
     }
 }

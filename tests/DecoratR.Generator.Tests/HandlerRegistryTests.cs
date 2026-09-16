@@ -8,110 +8,99 @@ namespace DecoratR.Generator.Tests;
 public class HandlerRegistryTests : GeneratorTestBase
 {
     [Fact]
-    public void GeneratesRegistryClass_WithHandlersPropertyOnly()
+    public void GeneratesRegistryClass_WithHandlersArray()
     {
-        var source = TestSources.HandlerOnly();
+        var registry = RunGenerator(TestSources.HandlerOnly()).ShouldCompile().HandlerRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().Contain("Handlers");
-        registrations.Should().Contain("TestCommandHandler");
-        registrations.Should().NotContain("ServiceDescriptor");
-        registrations.Should().NotContain("IServiceCollection");
+        registry.Should().Contain("public static class DecoratRHandlerRegistry");
+        registry.Should().Contain("public static HandlerRegistration[] Handlers { get; } =");
+        registry.Should().Contain("new(typeof(global::DecoratR.IRequestHandler<global::TestCommand, string>), typeof(global::TestCommandHandler)),");
+        registry.Should().NotContain("IServiceCollection");
     }
 
     [Fact]
-    public void RegistryClass_DoesNotIncludeRegistrationMethodMarker()
+    public void RegistryClass_IsHiddenFromIntelliSense()
     {
-        var source = TestSources.HandlerOnly();
+        var registry = RunGenerator(TestSources.HandlerOnly()).HandlerRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().NotContain("[global::DecoratR.DecoratRRegistrationMethod]");
+        registry.Should().Contain("EditorBrowsableState.Never");
+        registry.Should().Contain("GeneratedCode(\"DecoratR.Generator\"");
     }
 
     [Fact]
-    public void EmitsAssemblyLevelRegistrationAttribute()
+    public void EmitsAssemblyLevelRegistryAttribute()
     {
-        var source = TestSources.HandlerOnly();
+        var registry = RunGenerator(TestSources.HandlerOnly()).HandlerRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().Contain("[assembly: global::DecoratR.DecoratRHandlerRegistration(");
-        registrations.Should().Contain("TestAssembly.DecoratRHandlerRegistry");
+        registry.Should().Contain("[assembly: global::DecoratR.Metadata.DecoratRRegistry(\"global::TestAssembly.DecoratRHandlerRegistry\")]");
     }
 
     [Fact]
-    public void EmitsAssemblyLevelServiceTypeAttributes()
+    public void EmitsAssemblyLevelHandlerAttributes_WithHierarchies()
     {
-        var source = TestSources.HandlerOnly();
+        var registry = RunGenerator(TestSources.HandlerOnly()).HandlerRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().Contain("[assembly: global::DecoratR.DecoratRHandlerServiceType(");
-        registrations.Should().Contain("\"global::TestCommand\"");
-        registrations.Should().Contain("\"string\"");
+        registry.Should().Contain("[assembly: global::DecoratR.Metadata.DecoratRHandler(\"global::TestCommandHandler\", \"global::TestCommand\", \"string\", false, ");
+        registry.Should().Contain("RequestTypeHierarchy = \"global::TestCommand;");
+        registry.Should().Contain("global::DecoratR.IRequest;");
+        registry.Should().Contain("!class");
+        registry.Should().Contain("ResponseTypeHierarchy = \"string;");
     }
 
     [Fact]
-    public void InternalHandler_IncludedInRegistry()
+    public void InternalRequestType_MarksHandlerAsNotPubliclyAccessible()
     {
-        var source = """
-                     using DecoratR;
+        var result = RunGenerator("""
+            using DecoratR;
 
-                     [assembly: DecoratR.GenerateDecoratRMetadata]
+            [assembly: DecoratR.GenerateDecoratRMetadata]
 
-                     public sealed record TestCommand(string Name) : IRequest;
+            internal sealed record TestCommand(string Name) : IRequest;
 
-                     internal sealed class InternalHandler : IRequestHandler<TestCommand, string>
-                     {
-                         public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
-                             => ValueTask.FromResult("Hello");
-                     }
-                     """;
+            internal sealed class InternalHandler : IRequestHandler<TestCommand, string>
+            {
+                public ValueTask<string> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+                    => ValueTask.FromResult("Hello");
+            }
+            """).ShouldCompile();
 
-        var (_, generatedTrees) = RunGenerator(source);
-
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().Contain("InternalHandler");
+        result.HandlerRegistry.Should().Contain("IsPubliclyAccessible = false");
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "DCTR013");
     }
 
     [Fact]
-    public void RegistryNamespace_MatchesAssemblyName()
+    public void RegistryNamespace_IsSanitizedAssemblyName()
     {
-        var source = TestSources.HandlerOnly();
+        var registry = RunGenerator(TestSources.HandlerOnly(), "My-App.Web").ShouldCompile().HandlerRegistry;
 
-        var (_, generatedTrees) = RunGenerator(source, "My.Test.Assembly");
+        registry.Should().Contain("namespace My_App.Web;");
+        registry.Should().Contain("\"global::My_App.Web.DecoratRHandlerRegistry\"");
+    }
 
-        var registrations = generatedTrees.FindSource("DecoratRHandlerRegistry");
-        registrations.Should().Contain("namespace My.Test.Assembly;");
-        registrations.Should().Contain("My.Test.Assembly.DecoratRHandlerRegistry");
+    [Fact]
+    public void RegistryNamespace_EscapesKeywordSegments()
+    {
+        var registry = RunGenerator(TestSources.HandlerOnly(), "class.Lib").ShouldCompile().HandlerRegistry;
+
+        registry.Should().Contain("namespace @class.Lib;");
     }
 
     [Fact]
     public void DecoratorOnlyAssembly_EmitsDecoratorRegistryWithoutHandlerRegistry()
     {
-        var source = $"""
-                      using DecoratR;
+        var result = RunGenerator($"""
+            using DecoratR;
 
-                      {TestSources.MetadataAttribute}
+            {TestSources.MetadataAttribute}
 
-                      {TestSources.Decorator("FooDecorator", 3)}
-                      """;
+            {TestSources.Decorator("FooDecorator", 3)}
+            """, "DecoratorLib").ShouldCompile();
 
-        var (diagnostics, generatedTrees) = RunGenerator(source, "DecoratorLib");
+        result.Diagnostics.Should().NotContain(d => d.Id == "DCTR001");
+        result.Diagnostics.Should().Contain(d => d.Id == "DCTR003");
+        result.Has(GenerationResult.HandlerRegistryHint).Should().BeFalse();
 
-        diagnostics.Should().NotContain(d => d.Id == "DCTR001");
-        diagnostics.Should().Contain(d => d.Id == "DCTR003");
-        generatedTrees.Should().NotContain(t => t.Contains("DecoratRHandlerRegistry"));
-
-        var decoratorRegistry = generatedTrees.FindSource("DecoratRDecoratorRegistry");
-        decoratorRegistry.Should().Contain("ApplyFooDecorator");
-        decoratorRegistry.Should().Contain("[assembly: global::DecoratR.DecoratRDecoratorRegistration(");
-        decoratorRegistry.Should().Contain(", 3)]");
+        result.DecoratorRegistry.Should().Contain("ApplyFooDecorator<TRequest, TResponse>(");
+        result.DecoratorRegistry.Should().Contain("[assembly: global::DecoratR.Metadata.DecoratRDecorator(\"global::DecoratorLib.DecoratRDecoratorRegistry.ApplyFooDecorator\", \"global::FooDecorator\", 3, false");
     }
 }

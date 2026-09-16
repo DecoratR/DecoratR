@@ -13,6 +13,8 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DecoratR.Generator.Tests/DecoratR.Generator.Tests.csproj" />
+    <Project Path="tests/DecoratR.IntegrationTests.Library/DecoratR.IntegrationTests.Library.csproj" />
+    <Project Path="tests/DecoratR.IntegrationTests/DecoratR.IntegrationTests.csproj" />
     <Project Path="tests/DecoratR.Generator.Benchmarks/DecoratR.Generator.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/examples/">
@@ -20,5 +22,24 @@
     <Project Path="examples/simple-api/Examples.SimpleApi.csproj" />
     <Project Path="examples/clean-architecture/src/Examples.CleanArchitecture.Application/Examples.CleanArchitecture.Application.csproj" />
     <Project Path="examples/clean-architecture/src/Examples.CleanArchitecture.Api/Examples.CleanArchitecture.Api.csproj" />
+  </Folder>
+  <Folder Name="/examples/modular-monolith/">
+    <File Path="examples/modular-monolith/README.md" />
+    <Project Path="examples/modular-monolith/Examples.ModularMonolith.Api/Examples.ModularMonolith.Api.csproj" />
+    <Project Path="examples/modular-monolith/SharedKernel/Examples.ModularMonolith.SharedKernel/Examples.ModularMonolith.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/examples/modular-monolith/Catalog/">
+    <Project Path="examples/modular-monolith/Modules/Catalog/Examples.ModularMonolith.Catalog.Contracts/Examples.ModularMonolith.Catalog.Contracts.csproj" />
+    <Project Path="examples/modular-monolith/Modules/Catalog/Examples.ModularMonolith.Catalog.Domain/Examples.ModularMonolith.Catalog.Domain.csproj" />
+    <Project Path="examples/modular-monolith/Modules/Catalog/Examples.ModularMonolith.Catalog.Application/Examples.ModularMonolith.Catalog.Application.csproj" />
+    <Project Path="examples/modular-monolith/Modules/Catalog/Examples.ModularMonolith.Catalog.Infrastructure/Examples.ModularMonolith.Catalog.Infrastructure.csproj" />
+    <Project Path="examples/modular-monolith/Modules/Catalog/Examples.ModularMonolith.Catalog.Presentation/Examples.ModularMonolith.Catalog.Presentation.csproj" />
+  </Folder>
+  <Folder Name="/examples/modular-monolith/Orders/">
+    <Project Path="examples/modular-monolith/Modules/Orders/Examples.ModularMonolith.Orders.Contracts/Examples.ModularMonolith.Orders.Contracts.csproj" />
+    <Project Path="examples/modular-monolith/Modules/Orders/Examples.ModularMonolith.Orders.Domain/Examples.ModularMonolith.Orders.Domain.csproj" />
+    <Project Path="examples/modular-monolith/Modules/Orders/Examples.ModularMonolith.Orders.Application/Examples.ModularMonolith.Orders.Application.csproj" />
+    <Project Path="examples/modular-monolith/Modules/Orders/Examples.ModularMonolith.Orders.Infrastructure/Examples.ModularMonolith.Orders.Infrastructure.csproj" />
+    <Project Path="examples/modular-monolith/Modules/Orders/Examples.ModularMonolith.Orders.Presentation/Examples.ModularMonolith.Orders.Presentation.csproj" />
   </Folder>
 </Solution>

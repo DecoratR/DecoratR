@@ -8,41 +8,31 @@ namespace DecoratR.Generator.Tests;
 public class StreamCrossAssemblyTests : GeneratorTestBase
 {
     [Fact]
-    public void CompositionRoot_IteratesReferencedStreamHandlerRegistry()
+    public void CompositionRoot_RegistersReferencedStreamHandlersThroughRegistry()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
-            TestSources.StreamHandlerOnly(),
-            $"""
-             using DecoratR;
+        var (library, host) = RunTwoStageGenerator(TestSources.StreamHandlerOnly(), TestSources.EmptyHost());
 
-             {TestSources.RegistrationsAttribute}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("HandlerLib.DecoratRHandlerRegistry.StreamHandlers");
-        registrations.Should().Contain("// Register stream handlers from referenced assemblies");
+        library.HandlerRegistry.Should().Contain("IStreamRequestHandler<global::TestStreamQuery, string>");
+        host.ShouldCompile();
+        host.Registrations.Should().Contain("foreach (var handler in global::HandlerLib.DecoratRHandlerRegistry.Handlers)");
     }
 
     [Fact]
     public void StreamDecoratorInLib_DiscoveredByCompositionRoot()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             TestSources.StreamHandlerOnly(TestSources.StreamDecorator("AppStreamDecorator", 1)),
-            $"""
-             using DecoratR;
+            TestSources.EmptyHost());
 
-             {TestSources.RegistrationsAttribute}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("AppStreamDecorator");
-        registrations.Should().Contain("// Apply stream decorators");
+        host.ShouldCompile();
+        host.Registrations.GetPipeline("global::TestStreamQuery", "string", isStream: true)
+            .Should().Contain("global::HandlerLib.DecoratRDecoratorRegistry.ApplyAppStreamDecorator<global::TestStreamQuery, string>(descriptor);");
     }
 
     [Fact]
     public void MixedLocalAndReferencedStreamHandlers_BothRegistered()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             """
             using DecoratR;
 
@@ -54,6 +44,7 @@ public class StreamCrossAssemblyTests : GeneratorTestBase
             {
                 public async IAsyncEnumerable<string> HandleAsync(RemoteStreamQuery request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
                 {
+                    await Task.Yield();
                     yield return "remote";
                 }
             }
@@ -69,34 +60,26 @@ public class StreamCrossAssemblyTests : GeneratorTestBase
             {
                 public async IAsyncEnumerable<string> HandleAsync(LocalStreamQuery request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
                 {
+                    await Task.Yield();
                     yield return "local";
                 }
             }
             """);
 
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("HandlerLib.DecoratRHandlerRegistry.StreamHandlers");
-        registrations.Should().Contain("LocalStreamHandler");
-        registrations.Should().Contain("// Register local stream handlers");
-        registrations.Should().Contain("// Register stream handlers from referenced assemblies");
+        host.ShouldCompile();
+        host.Registrations.Should().Contain("global::HandlerLib.DecoratRHandlerRegistry.Handlers");
+        host.Registrations.Should().Contain("typeof(global::LocalStreamHandler)");
     }
 
     [Fact]
-    public void CrossAssembly_StreamDecoratorsAppliedToReferencedStreamServiceTypes()
+    public void CrossAssembly_LocalStreamDecoratorsAppliedToReferencedStreamServiceTypes()
     {
-        var (_, generatedTrees) = RunTwoStageGenerator(
+        var (_, host) = RunTwoStageGenerator(
             TestSources.StreamHandlerOnly(),
-            $"""
-             using DecoratR;
+            TestSources.EmptyHost(TestSources.StreamDecorator("LocalStreamDecorator", 1)));
 
-             {TestSources.RegistrationsAttribute}
-
-             {TestSources.StreamDecorator("LocalStreamDecorator", 1)}
-             """);
-
-        var registrations = generatedTrees.FindSource("DecoratRServiceCollectionExtensions");
-        registrations.Should().Contain("DecorateStreamService<");
-        registrations.Should().Contain("LocalStreamDecorator");
-        registrations.Should().Contain("TestStreamQuery");
+        host.ShouldCompile();
+        host.Registrations.GetPipeline("global::TestStreamQuery", "string", isStream: true)
+            .Should().Contain("Wrap<global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>, global::LocalStreamDecorator<global::TestStreamQuery, string>>(descriptor);");
     }
 }

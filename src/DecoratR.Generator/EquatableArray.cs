@@ -3,20 +3,25 @@ using System.Collections.Immutable;
 
 namespace DecoratR.Generator;
 
+/// <summary>
+/// An immutable array with structural equality, so it can be part of incremental pipeline values.
+/// A <see langword="default"/> instance behaves like an empty array.
+/// </summary>
 internal readonly struct EquatableArray<T>(ImmutableArray<T> array)
     : IEquatable<EquatableArray<T>>, IEnumerable<T>
     where T : IEquatable<T>
 {
-    private readonly ImmutableArray<T> _array = array;
+    public static readonly EquatableArray<T> Empty = new(ImmutableArray<T>.Empty);
 
-    public ImmutableArray<T> AsImmutableArray()
-    {
-        return _array;
-    }
+    private readonly ImmutableArray<T> _array = array;
 
     public int Length => _array.IsDefault ? 0 : _array.Length;
 
+    public bool IsEmpty => Length == 0;
+
     public T this[int index] => _array[index];
+
+    public ImmutableArray<T> AsImmutableArray() => _array.IsDefault ? ImmutableArray<T>.Empty : _array;
 
     public bool Contains(T item)
     {
@@ -31,23 +36,17 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> array)
 
     public bool Equals(EquatableArray<T> other)
     {
-        if (_array.IsDefault && other._array.IsDefault) return true;
+        var length = Length;
+        if (length != other.Length) return false;
 
-        if (_array.IsDefault || other._array.IsDefault) return false;
-
-        if (_array.Length != other._array.Length) return false;
-
-        for (var i = 0; i < _array.Length; i++)
+        for (var i = 0; i < length; i++)
             if (!_array[i].Equals(other._array[i]))
                 return false;
 
         return true;
     }
 
-    public override bool Equals(object? obj)
-    {
-        return obj is EquatableArray<T> other && Equals(other);
-    }
+    public override bool Equals(object? obj) => obj is EquatableArray<T> other && Equals(other);
 
     public override int GetHashCode()
     {
@@ -63,27 +62,13 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> array)
         }
     }
 
-    public ImmutableArray<T>.Enumerator GetEnumerator()
-    {
-        return _array.IsDefault
-            ? ImmutableArray<T>.Empty.GetEnumerator()
-            : _array.GetEnumerator();
-    }
+    public ImmutableArray<T>.Enumerator GetEnumerator() => AsImmutableArray().GetEnumerator();
 
-    IEnumerator<T> IEnumerable<T>.GetEnumerator()
-    {
-        if (_array.IsDefault) yield break;
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() => ((IEnumerable<T>)AsImmutableArray()).GetEnumerator();
 
-        foreach (var item in _array) yield return item;
-    }
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<T>)AsImmutableArray()).GetEnumerator();
 
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return ((IEnumerable<T>)this).GetEnumerator();
-    }
+    public static implicit operator EquatableArray<T>(ImmutableArray<T> array) => new(array);
 
-    public static implicit operator EquatableArray<T>(ImmutableArray<T> array)
-    {
-        return new EquatableArray<T>(array);
-    }
+    public static EquatableArray<T> From(IEnumerable<T> items) => new(items.ToImmutableArray());
 }

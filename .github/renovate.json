@@ -21,6 +21,18 @@
             "enabled": false
         },
         {
+            "description": "The generator must reference the Roslyn version of the minimum supported SDK; bump it deliberately.",
+            "matchFileNames": [
+                "src/DecoratR.Generator/**"
+            ],
+            "matchPackageNames": [
+                "Microsoft.CodeAnalysis.CSharp",
+                "Microsoft.CodeAnalysis.Common",
+                "Microsoft.CodeAnalysis.Analyzers"
+            ],
+            "enabled": false
+        },
+        {
             "matchDepNames": [
                 "decoratR**"
             ],
