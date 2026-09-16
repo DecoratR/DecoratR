@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\src\DecoratR.Abstractions\DecoratR.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\..\..\src\DecoratR.Generator\DecoratR.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\SharedKernel\Examples.ModularMonolith.SharedKernel\Examples.ModularMonolith.SharedKernel.csproj" />
+    <!-- Cross-module dependency: only the public contracts of the Catalog module, never its internals. -->
+    <ProjectReference Include="..\..\Catalog\Examples.ModularMonolith.Catalog.Contracts\Examples.ModularMonolith.Catalog.Contracts.csproj" />
+    <ProjectReference Include="..\Examples.ModularMonolith.Orders.Contracts\Examples.ModularMonolith.Orders.Contracts.csproj" />
+    <ProjectReference Include="..\Examples.ModularMonolith.Orders.Domain\Examples.ModularMonolith.Orders.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
