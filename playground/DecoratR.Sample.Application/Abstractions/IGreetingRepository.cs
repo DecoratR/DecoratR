@@ -8,5 +8,7 @@ public interface IGreetingRepository
 
     Task AddAsync(Greeting greeting, CancellationToken cancellationToken = default);
 
+    Task RemoveAsync(string name, CancellationToken cancellationToken = default);
+
     IAsyncEnumerable<Greeting> GetAllAsync(CancellationToken cancellationToken = default);
 }

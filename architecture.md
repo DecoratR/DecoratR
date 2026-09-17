@@ -6,7 +6,9 @@ DecoratR is a compile-time decorator pipeline for .NET request handlers, built a
 
 ```
 src/
-├── DecoratR.Abstractions/    Public API: IRequest, IRequestHandler, IStreamRequest, IStreamRequestHandler,
+├── DecoratR.Abstractions/    Public API: IRequest, IRequestHandler<,>, IRequestHandler<> (no response, bridges
+│                              to IRequestHandler<TRequest, Unit>), Unit, VoidRequestHandler<> (generated facade
+│                              registration), IStreamRequest, IStreamRequestHandler,
 │                              DecoratorAttribute, DecoratROptions, the two trigger attributes
 │                              ([GenerateDecoratRMetadata], [GenerateDecoratRRegistrations]) and the
 │                              DecoratR.Metadata attributes that carry cross-assembly metadata.
@@ -74,6 +76,11 @@ All values flowing between steps are records with structural equality (`Equatabl
   implement `IRequestHandler<,>` or `IStreamRequestHandler<,>`. A class implementing several handler
   interfaces yields one registration per interface. Partial declarations are processed once. Handlers must be
   accessible from generated code (public or internal). Value types are rejected (DCTR010).
+- **Handlers without a response** implement `IRequestHandler<TRequest>`, which derives from
+  `IRequestHandler<TRequest, Unit>`, so detection, constraint matching and cross-assembly metadata see the
+  ordinary two-parameter service type. `HandlerMetadata.RegistersVoidFacade` marks them, and the emitters add a
+  second registration `IRequestHandler<TRequest>` → `VoidRequestHandler<TRequest>` (in `AddDecoratR()` for local
+  handlers, in the library's `Handlers` array for referenced ones). The facade is never a decoration target.
 - **Decorators**: `[Decorator]` classes that are open generic with exactly two type parameters used as the
   `TRequest`/`TResponse` arguments of exactly one handler interface (the declared order of the type parameters
   does not matter). Constraints on both type parameters are captured, including `class`, `struct`, `notnull`,

@@ -20,6 +20,16 @@ internal sealed class LibraryQueryHandler(ExecutionTrace trace) : IRequestHandle
     }
 }
 
+internal sealed class LibraryVoidCommandHandler(ExecutionTrace trace) : IRequestHandler<LibraryVoidCommand>
+{
+    public async ValueTask HandleAsync(LibraryVoidCommand request, CancellationToken cancellationToken = default)
+    {
+        // Exercise the asynchronous path of the IRequestHandler<TRequest> bridge.
+        await Task.Yield();
+        trace.Add(nameof(LibraryVoidCommandHandler));
+    }
+}
+
 internal sealed class LibraryStreamHandler(ExecutionTrace trace) : IStreamRequestHandler<LibraryStream, int>
 {
     public async IAsyncEnumerable<int> HandleAsync(

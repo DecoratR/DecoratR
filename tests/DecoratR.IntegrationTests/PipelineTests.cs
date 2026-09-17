@@ -101,6 +101,82 @@ public class PipelineTests
     }
 
     [Fact]
+    public async Task HostVoidCommand_ResolvesAsPlainValueTask_AndRunsAllMatchingDecorators()
+    {
+        var (provider, trace) = Build();
+        using var _ = provider;
+
+        var handler = provider.GetRequiredService<IRequestHandler<HostVoidCommand>>();
+        await handler.HandleAsync(new HostVoidCommand("Linus"), TestContext.Current.CancellationToken);
+
+        handler.Should().BeOfType<VoidRequestHandler<HostVoidCommand>>();
+        trace.Entries.Should().Equal(
+            "HostOuterDecorator:enter",
+            "HostTiedDecorator:enter",
+            "LibraryLoggingDecorator:enter",
+            "HostStructResponseDecorator:enter", // Unit is a struct
+            "LibraryCommandDecorator:enter",     // HostVoidCommand is an ILibraryCommand
+            "HostVoidCommandHandler:Linus",
+            "LibraryCommandDecorator:exit",
+            "HostStructResponseDecorator:exit",
+            "LibraryLoggingDecorator:exit",
+            "HostTiedDecorator:exit",
+            "HostOuterDecorator:exit");
+    }
+
+    [Fact]
+    public async Task LibraryVoidCommand_InternalHandler_IsExposedThroughRegistry()
+    {
+        var (provider, trace) = Build();
+        using var _ = provider;
+
+        var handler = provider.GetRequiredService<IRequestHandler<LibraryVoidCommand>>();
+        await handler.HandleAsync(new LibraryVoidCommand(), TestContext.Current.CancellationToken);
+
+        trace.Entries.Should().Equal(
+            "HostOuterDecorator:enter",
+            "HostTiedDecorator:enter",
+            "LibraryLoggingDecorator:enter",
+            "HostStructResponseDecorator:enter",
+            "LibraryVoidCommandHandler",
+            "HostStructResponseDecorator:exit",
+            "LibraryLoggingDecorator:exit",
+            "HostTiedDecorator:exit",
+            "HostOuterDecorator:exit");
+    }
+
+    [Fact]
+    public async Task VoidCommand_UnitPipeline_IsResolvableToo()
+    {
+        var (provider, trace) = Build();
+        using var _ = provider;
+
+        var handler = provider.GetRequiredService<IRequestHandler<HostVoidCommand, Unit>>();
+        var result = await handler.HandleAsync(new HostVoidCommand("Ada"), TestContext.Current.CancellationToken);
+
+        result.Should().Be(Unit.Value);
+        handler.Should().BeOfType<HostOuterDecorator<HostVoidCommand, Unit>>();
+        trace.Entries.Should().Contain("HostVoidCommandHandler:Ada");
+    }
+
+    [Fact]
+    public void VoidFacade_SharesTheLifetimeOfThePipeline()
+    {
+        var (provider, _) = Build(options => options.Lifetime = ServiceLifetime.Scoped);
+        using var _ = provider;
+
+        using var scope1 = provider.CreateScope();
+        using var scope2 = provider.CreateScope();
+
+        var a = scope1.ServiceProvider.GetRequiredService<IRequestHandler<HostVoidCommand>>();
+        var b = scope1.ServiceProvider.GetRequiredService<IRequestHandler<HostVoidCommand>>();
+        var c = scope2.ServiceProvider.GetRequiredService<IRequestHandler<HostVoidCommand>>();
+
+        a.Should().BeSameAs(b);
+        a.Should().NotBeSameAs(c);
+    }
+
+    [Fact]
     public async Task StreamPipeline_IsSeparateFromRequestPipeline()
     {
         var (provider, trace) = Build();

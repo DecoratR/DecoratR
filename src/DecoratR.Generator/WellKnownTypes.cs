@@ -16,7 +16,9 @@ internal static class WellKnownTypes
     public const string GenerateRegistrationsAttributeShortName = "GenerateDecoratRRegistrations";
 
     public const string RequestHandlerMetadataName = "IRequestHandler`2";
+    public const string VoidRequestHandlerMetadataName = "IRequestHandler`1";
     public const string StreamRequestHandlerMetadataName = "IStreamRequestHandler`2";
+    public const string UnitName = "Unit";
     public const string RequestMarkerName = "IRequest";
     public const string StreamRequestMarkerName = "IStreamRequest";
 
@@ -31,6 +33,7 @@ internal static class WellKnownTypes
     public const string StreamRequestMarker = "global::DecoratR.IStreamRequest";
     public const string RequestHandler = "global::DecoratR.IRequestHandler";
     public const string StreamRequestHandler = "global::DecoratR.IStreamRequestHandler";
+    public const string VoidRequestHandler = "global::DecoratR.VoidRequestHandler";
     public const string Options = "global::DecoratR.DecoratROptions";
     public const string RegistryAttribute = "global::DecoratR.Metadata.DecoratRRegistry";
     public const string HandlerAttribute = "global::DecoratR.Metadata.DecoratRHandler";

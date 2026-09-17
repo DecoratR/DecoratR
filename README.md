@@ -14,7 +14,7 @@ The full guide is available at [https://github.com/DecoratR/DecoratR/blob/main/d
 - Cross cutting behavior such as logging, validation, timing, retries, and exception handling moves out of handlers and into reusable decorators.
 - Registration happens at build time, so startup stays simple and the generated code is easy to inspect.
 - Decorators can target all requests or only specific request families through generic constraints on `TRequest` and `TResponse`.
-- Request response handlers and stream handlers are both supported.
+- Request response handlers, handlers without a response (`IRequestHandler<TRequest>` returning a plain `ValueTask`) and stream handlers are all supported.
 - Multi project solutions work without manual registration glue because metadata flows across assembly references.
 - Misconfigurations (a decorator without a handler interface, two handlers for the same request, an inaccessible handler, …) are reported as compiler diagnostics instead of failing at runtime.
 - The generated registration code is friendly to AOT and trimming scenarios.
@@ -25,7 +25,7 @@ The full guide is available at [https://github.com/DecoratR/DecoratR/blob/main/d
 
 ## Packages
 
-1. [`DecoratR.Abstractions`](https://www.nuget.org/packages/DecoratR.Abstractions) contains `IRequest`, `IRequestHandler<TRequest, TResponse>`, `IStreamRequest`, `IStreamRequestHandler<TRequest, TResponse>`, `DecoratorAttribute`, `DecoratROptions` and the assembly attributes that switch generation on.
+1. [`DecoratR.Abstractions`](https://www.nuget.org/packages/DecoratR.Abstractions) contains `IRequest`, `IRequestHandler<TRequest, TResponse>`, `IRequestHandler<TRequest>`, `Unit`, `IStreamRequest`, `IStreamRequestHandler<TRequest, TResponse>`, `DecoratorAttribute`, `DecoratROptions` and the assembly attributes that switch generation on.
 2. [`DecoratR.Generator`](https://www.nuget.org/packages/DecoratR.Generator) contains the Roslyn source generator that emits registration code and cross assembly metadata.
 
 ## Install
@@ -62,6 +62,22 @@ internal sealed class GetGreetingQueryHandler
         CancellationToken cancellationToken = default)
     {
         return ValueTask.FromResult($"Hello, {request.Name}");
+    }
+}
+```
+
+A handler without a response implements `IRequestHandler<TRequest>` and returns a plain `ValueTask`; decorators apply to it like to any other handler.
+
+```csharp
+internal sealed class DeleteGreetingCommandHandler
+    : IRequestHandler<DeleteGreetingCommand>
+{
+    public ValueTask HandleAsync(
+        DeleteGreetingCommand request,
+        CancellationToken cancellationToken = default)
+    {
+        // ...
+        return default;
     }
 }
 ```

@@ -99,13 +99,12 @@ internal static class RegistrationsEmitter
                 w.AppendLine("// Handlers declared in this assembly");
                 foreach (var handler in localHandlers)
                 {
-                    w.Append("services.Add(new ").Append(WellKnownTypes.ServiceDescriptor).AppendLine("(");
-                    using (w.Indent())
-                    {
-                        w.Append("typeof(").Append(handler.ServiceType.ConstructedInterface).AppendLine("),");
-                        w.Append("typeof(").Append(handler.HandlerType).AppendLine("),");
-                        w.AppendLine("options.Lifetime));");
-                    }
+                    WriteRegistration(w, handler.ServiceType.ConstructedInterface, handler.HandlerType);
+
+                    // Handlers without a response are also exposed as IRequestHandler<TRequest>; the facade
+                    // resolves the decorated IRequestHandler<TRequest, Unit> pipeline.
+                    if (handler.RegistersVoidFacade)
+                        WriteRegistration(w, handler.VoidFacadeInterface, handler.VoidFacadeImplementation);
                 }
             }
 
@@ -125,6 +124,17 @@ internal static class RegistrationsEmitter
 
             w.AppendLine();
             w.AppendLine("return services;");
+        }
+    }
+
+    private static void WriteRegistration(SourceWriter w, string serviceType, string implementationType)
+    {
+        w.Append("services.Add(new ").Append(WellKnownTypes.ServiceDescriptor).AppendLine("(");
+        using (w.Indent())
+        {
+            w.Append("typeof(").Append(serviceType).AppendLine("),");
+            w.Append("typeof(").Append(implementationType).AppendLine("),");
+            w.AppendLine("options.Lifetime));");
         }
     }
 

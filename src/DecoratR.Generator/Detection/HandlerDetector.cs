@@ -68,7 +68,11 @@ internal static class HandlerDetector
 
         var handlers = ImmutableArray.CreateBuilder<HandlerMetadata>(interfaces.Count);
         foreach (var (iface, isStream) in interfaces)
-            handlers.Add(new HandlerMetadata(handlerType, ServiceTypeInfo.Create(iface, isStream, context.SemanticModel.Compilation), location));
+            handlers.Add(new HandlerMetadata(
+                handlerType,
+                ServiceTypeInfo.Create(iface, isStream, context.SemanticModel.Compilation),
+                location,
+                symbol.RegistersVoidFacade(iface, isStream)));
 
         return new HandlerDetectionResult(handlers.ToImmutable(), EquatableArray<DiagnosticInfo>.Empty);
     }

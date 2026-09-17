@@ -46,7 +46,7 @@ internal static class DecoratorDetector
             requestParameter.Ordinal == responseParameter.Ordinal ||
             !SymbolEqualityComparer.Default.Equals(requestParameter.ContainingSymbol, symbol) ||
             !SymbolEqualityComparer.Default.Equals(responseParameter.ContainingSymbol, symbol))
-            return Failure(Diagnostics.DecoratorTypeParameterMismatch, location, displayName);
+            return Failure(Diagnostics.DecoratorTypeParameterMismatch, location, displayName, VoidDecoratorHint(symbol));
 
         var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
         if (!HasInnerHandlerConstructor(symbol, handlerInterface))
@@ -98,6 +98,20 @@ internal static class DecoratorDetector
         if (!symbol.IsGenericType) return "is not an open generic type; a decorator needs type parameters for TRequest and TResponse";
         if (symbol.IsNestedInGenericType()) return "is nested in a generic type";
         return null;
+    }
+
+    /// <summary>
+    /// A decorator written against <c>IRequestHandler&lt;TRequest&gt;</c> implicitly implements
+    /// <c>IRequestHandler&lt;TRequest, Unit&gt;</c>, which fails the type parameter check. Point the author to
+    /// the two-parameter form, which covers handlers without a response as well.
+    /// </summary>
+    private static string VoidDecoratorHint(INamedTypeSymbol symbol)
+    {
+        foreach (var iface in symbol.AllInterfaces)
+            if (iface.IsVoidHandlerInterface())
+                return "; decorators for handlers without a response must implement IRequestHandler<TRequest, TResponse> too (TResponse is Unit for those pipelines)";
+
+        return string.Empty;
     }
 
     private static string? FindNonPublicConstraintType(ITypeParameterSymbol typeParameter)

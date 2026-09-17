@@ -20,12 +20,18 @@ public class SnapshotTests : GeneratorTestBase
         public interface ICommand : IRequest;
 
         public sealed record CreateUser(string Name) : ICommand;
+        public sealed record DeleteUser(int Id) : ICommand;
         public sealed record GetUsers : IRequest;
         public sealed record StreamUsers : IStreamRequest;
 
         public sealed class CreateUserHandler : IRequestHandler<CreateUser, int>
         {
             public ValueTask<int> HandleAsync(CreateUser request, CancellationToken cancellationToken = default) => default;
+        }
+
+        public sealed class DeleteUserHandler : IRequestHandler<DeleteUser>
+        {
+            public ValueTask HandleAsync(DeleteUser request, CancellationToken cancellationToken = default) => default;
         }
 
         internal sealed class GetUsersHandler : IRequestHandler<GetUsers, IReadOnlyList<string>>
