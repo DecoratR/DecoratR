@@ -48,8 +48,16 @@ internal static class HandlerRegistryEmitter
             using (w.Block("public static HandlerRegistration[] Handlers { get; } =", opening: "[", closing: "];"))
             {
                 foreach (var handler in handlers)
+                {
                     w.Append("new(typeof(").Append(handler.ServiceType.ConstructedInterface)
                         .Append("), typeof(").Append(handler.HandlerType).AppendLine(")),");
+
+                    // Handlers without a response are also exposed as IRequestHandler<TRequest>; the facade
+                    // resolves the decorated IRequestHandler<TRequest, Unit> pipeline.
+                    if (handler.RegistersVoidFacade)
+                        w.Append("new(typeof(").Append(handler.VoidFacadeInterface)
+                            .Append("), typeof(").Append(handler.VoidFacadeImplementation).AppendLine(")),");
+                }
             }
 
             w.AppendLine();

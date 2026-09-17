@@ -54,6 +54,37 @@ internal static class SymbolExtensions
         return original.ContainingNamespace.IsDecoratRNamespace();
     }
 
+    /// <summary>
+    /// Returns <see langword="true"/> when <paramref name="iface"/> is <c>DecoratR.IRequestHandler&lt;TRequest&gt;</c>,
+    /// the handler interface for requests without a response.
+    /// </summary>
+    public static bool IsVoidHandlerInterface(this INamedTypeSymbol iface) =>
+        iface.TypeArguments.Length == 1 &&
+        iface.OriginalDefinition.MetadataName == WellKnownTypes.VoidRequestHandlerMetadataName &&
+        iface.OriginalDefinition.ContainingNamespace.IsDecoratRNamespace();
+
+    /// <summary>Returns <see langword="true"/> for <c>DecoratR.Unit</c>.</summary>
+    public static bool IsUnit(this ITypeSymbol type) =>
+        type is INamedTypeSymbol { Name: WellKnownTypes.UnitName, IsGenericType: false } named &&
+        named.ContainingNamespace.IsDecoratRNamespace();
+
+    /// <summary>
+    /// Whether <paramref name="type"/> implements <c>IRequestHandler&lt;TRequest&gt;</c> for the request type of
+    /// <paramref name="handlerInterface"/>, i.e. the handler was declared without a response and the generated
+    /// registrations must expose the pipeline as <c>IRequestHandler&lt;TRequest&gt;</c> as well.
+    /// </summary>
+    public static bool RegistersVoidFacade(this INamedTypeSymbol type, INamedTypeSymbol handlerInterface, bool isStream)
+    {
+        if (isStream || !handlerInterface.TypeArguments[1].IsUnit()) return false;
+
+        foreach (var iface in type.AllInterfaces)
+            if (iface.IsVoidHandlerInterface() &&
+                SymbolEqualityComparer.Default.Equals(iface.TypeArguments[0], handlerInterface.TypeArguments[0]))
+                return true;
+
+        return false;
+    }
+
     /// <summary>Returns <see langword="true"/> for <c>DecoratR.IRequest</c> and <c>DecoratR.IStreamRequest</c>.</summary>
     public static bool IsRequestMarkerInterface(this INamedTypeSymbol iface) =>
         iface.TypeArguments.Length == 0 &&

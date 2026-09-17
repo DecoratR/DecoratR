@@ -15,6 +15,18 @@ public sealed class HostCommandHandler(ExecutionTrace trace) : IRequestHandler<H
     }
 }
 
+/// <summary>A command without a response; also an <see cref="ILibraryCommand"/> so the constrained library decorator applies.</summary>
+public sealed record HostVoidCommand(string Name) : ILibraryCommand;
+
+public sealed class HostVoidCommandHandler(ExecutionTrace trace) : IRequestHandler<HostVoidCommand>
+{
+    public ValueTask HandleAsync(HostVoidCommand request, CancellationToken cancellationToken = default)
+    {
+        trace.Add(nameof(HostVoidCommandHandler) + ":" + request.Name);
+        return default;
+    }
+}
+
 public sealed class HostQueryHandler(ExecutionTrace trace) : IRequestHandler<HostQuery, int>
 {
     public ValueTask<int> HandleAsync(HostQuery request, CancellationToken cancellationToken = default)

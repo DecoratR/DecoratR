@@ -69,6 +69,29 @@ Only one handler per request/response pair is allowed. A second implementation i
 
 Constructor injection works like any other DI based service.
 
+#### Handlers without a response
+
+A handler that produces no result implements `IRequestHandler<TRequest>` and returns a plain `ValueTask`.
+
+```csharp
+public sealed record DeleteGreetingCommand(string Name) : IRequest;
+
+internal sealed class DeleteGreetingCommandHandler(IGreetingRepository repository)
+    : IRequestHandler<DeleteGreetingCommand>
+{
+    public ValueTask HandleAsync(
+        DeleteGreetingCommand request,
+        CancellationToken cancellationToken = default)
+    {
+        return repository.RemoveAsync(request.Name, cancellationToken);
+    }
+}
+```
+
+`IRequestHandler<TRequest>` derives from `IRequestHandler<TRequest, Unit>` and bridges to it with a default interface implementation, so every decorator written for `IRequestHandler<TRequest, TResponse>` applies to these handlers as well; decorators see `Unit` as their `TResponse`. Handler authors and callers never deal with `Unit` themselves.
+
+The generated registration exposes such a pipeline twice: as `IRequestHandler<TRequest, Unit>` (the decorated chain) and as `IRequestHandler<TRequest>` through a small generated facade registration (`VoidRequestHandler<TRequest>`) that forwards to the decorated chain. Resolve `IRequestHandler<TRequest>` and await the `ValueTask`.
+
 ### Decorators
 
 Decorators wrap handlers and apply cross cutting behavior.
@@ -174,6 +197,19 @@ app.MapGet("/greeting/{name}", async (
 ```
 
 The resolved handler is the decorated chain, not just the raw implementation type.
+
+Handlers without a response are resolved as `IRequestHandler<TRequest>`:
+
+```csharp
+app.MapDelete("/greeting/{name}", async (
+    string name,
+    IRequestHandler<DeleteGreetingCommand> handler,
+    CancellationToken cancellationToken) =>
+{
+    await handler.HandleAsync(new DeleteGreetingCommand(name), cancellationToken);
+    return Results.NoContent();
+});
+```
 
 ## Multi Project Setup
 
@@ -325,6 +361,7 @@ DecoratR matches constraints against the full request and response type hierarch
 2. The type itself, its implemented interfaces and its base types are considered, so a constraint such as `ICommand` also applies when a request implements it indirectly.
 3. Generic constraints that mention the other type parameter (`IQuery<TResponse>`) are matched with the handler's concrete types substituted.
 4. The special constraints `class`, `struct`, `unmanaged` and `new()` are matched against the concrete types. `notnull` is not tracked and never excludes a handler.
+5. Handlers without a response have `Unit` as their response type. `Unit` is a struct, so `where TResponse : struct` matches those pipelines and `where TResponse : class` excludes them.
 
 A decorator whose constraints are not satisfied by a handler is simply not applied to it. The generated code only contains combinations that compile.
 
@@ -428,6 +465,8 @@ Error. A `[Decorator]` type does not implement exactly one of `IRequestHandler<,
 ### DCTR005
 
 Error. A `[Decorator]` type does not declare exactly two type parameters that are used as the request and response type arguments of its handler interface.
+
+This is also reported for a decorator written against `IRequestHandler<TRequest>` (one type parameter). Decorators always use the two-parameter form; it covers handlers without a response as well, with `Unit` as `TResponse`.
 
 ### DCTR006
 

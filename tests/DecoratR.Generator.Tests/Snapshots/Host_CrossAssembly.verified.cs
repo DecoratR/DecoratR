@@ -15,7 +15,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class DecoratRServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers 4 handler(s) and applies 4 decorator(s) discovered in this assembly and its references.
+    /// Registers 5 handler(s) and applies 4 decorator(s) discovered in this assembly and its references.
     /// Lower <c>Order</c> values are applied further outside; ties are broken by the fully qualified decorator type name.
     /// </summary>
     /// <param name="services">The service collection to add the registrations to.</param>
@@ -52,6 +52,13 @@ public static class DecoratRServiceCollectionExtensions
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_CommandDecorator<global::Sample.Library.CreateUser, int>(descriptor); // Order 2
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_LoggingDecorator<global::Sample.Library.CreateUser, int>(descriptor); // Order 1
             descriptor = Wrap<global::DecoratR.IRequestHandler<global::Sample.Library.CreateUser, int>, global::Sample.Host.TimingDecorator<global::Sample.Library.CreateUser, int>>(descriptor); // Order 0
+            return descriptor;
+        });
+        Decorate(services, typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>), static descriptor =>
+        {
+            descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_CommandDecorator<global::Sample.Library.DeleteUser, global::DecoratR.Unit>(descriptor); // Order 2
+            descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_LoggingDecorator<global::Sample.Library.DeleteUser, global::DecoratR.Unit>(descriptor); // Order 1
+            descriptor = Wrap<global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>, global::Sample.Host.TimingDecorator<global::Sample.Library.DeleteUser, global::DecoratR.Unit>>(descriptor); // Order 0
             return descriptor;
         });
         Decorate(services, typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>), static descriptor =>

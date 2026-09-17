@@ -32,6 +32,12 @@ internal sealed class InMemoryGreetingRepository : IGreetingRepository
         return Task.CompletedTask;
     }
 
+    public Task RemoveAsync(string name, CancellationToken cancellationToken = default)
+    {
+        _greetings.TryRemove(name, out _);
+        return Task.CompletedTask;
+    }
+
     public async IAsyncEnumerable<Greeting> GetAllAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

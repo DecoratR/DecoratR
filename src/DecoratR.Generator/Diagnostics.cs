@@ -34,7 +34,7 @@ internal static class Diagnostics
     public static readonly DiagnosticDescriptor DecoratorTypeParameterMismatch = Create(
         "DCTR005",
         "Decorator type parameters do not map to the handler interface",
-        "Decorator '{0}' must declare exactly two type parameters that are used as the request and response type arguments of its handler interface",
+        "Decorator '{0}' must declare exactly two type parameters that are used as the request and response type arguments of its handler interface{1}",
         DiagnosticSeverity.Error);
 
     public static readonly DiagnosticDescriptor DecoratorIgnored = Create(
