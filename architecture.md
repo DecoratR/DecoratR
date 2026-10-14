@@ -30,7 +30,10 @@ tests/
 │                                   generated code; Snapshots/ holds full-output snapshots.
 ├── DecoratR.IntegrationTests/     Runs the generated AddDecoratR() against a real ServiceProvider,
 │   └── …Tests.Library/            with a referenced library that uses [GenerateDecoratRMetadata].
-└── DecoratR.Generator.Benchmarks/ BenchmarkDotNet benchmarks of the generator itself
+├── DecoratR.Generator.Benchmarks/ BenchmarkDotNet benchmarks of the generator itself, including a modular
+│                                   monolith scenario (N modules × M handlers, cold run and IDE keystroke)
+└── DecoratR.Runtime.Benchmarks/   BenchmarkDotNet benchmarks of the generated code: resolving a decorated
+                                    pipeline and the registration cost of AddDecoratR() for 100–2000 handlers
 
 examples/                          simple-api and clean-architecture consume the published NuGet packages;
                                    modular-monolith references src/ directly (two Clean Architecture modules + API)

@@ -38,6 +38,12 @@ public class GeneratorBenchmarks
         (_crossAssemblyCompilation, _crossAssemblyDriver) = CompilationHelper.CreateTwoStageSetup(
             Sources.CrossAssemblyHandlerLib,
             Sources.CrossAssemblyCompositionRoot);
+
+        // Every scenario must produce its output; otherwise the benchmark would measure an early exit.
+        CompilationHelper.EnsureGenerates(_singleHandlerCompilation, CompilationHelper.HandlerRegistryHint, CompilationHelper.DecoratorRegistryHint);
+        CompilationHelper.EnsureGenerates(_multiHandlerCompilation, CompilationHelper.HandlerRegistryHint, CompilationHelper.DecoratorRegistryHint);
+        CompilationHelper.EnsureGenerates(_constrainedCompilation, CompilationHelper.RegistrationsHint);
+        CompilationHelper.EnsureGenerates(_crossAssemblyCompilation, CompilationHelper.RegistrationsHint);
     }
 
     [Benchmark(Description = "1 handler + 1 decorator (metadata)")]
