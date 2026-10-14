@@ -175,7 +175,7 @@ Generator skaliert auf 10 Module × 100 Handler problemlos (Host kalt 4,6 ms). D
   analog als Folgeschritt.
 - **Priorität:** Hoch · **Aufwand:** S (mit RP1)
 - **Status:** umgesetzt (Phase 1, Entscheidung 8.1): Schlüssel `DecoratRServiceKeys.Validation`
-  (`"DecoratR.Validation"`), auch für Fallback-Handler und Handler aus älteren Registries.
+  (`"DecoratR.Validation"`), auch für Fallback-Handler.
   `MM1_ValidateOnBuild_ReportsMissingDependencyOfDecoratedHandler` und
   `PipelineTests.ValidateScopes_ReportsCaptiveDependencyOfDecoratedHandler` sind aktiv. Decorator-Abhängigkeiten werden
   noch nicht validiert (Folgeschritt).
@@ -424,8 +424,7 @@ JIT und NativeAOT gegen ~3 µs pro Service-Typ im JIT-Kaltstart; unter NativeAOT
 > vom ursprünglichen Entwurf sind unten unter „Umsetzungsentscheidungen“ begründet.
 
 Ziel: keine Laufzeit-Kompilierung, keine `object[]` pro Resolve, `ValidateOnBuild` greift, Semantik für
-vom Nutzer vorab registrierte Service-Typen bleibt erhalten. Das Metadaten-Format bleibt abwärtskompatibel, weil die
-Composition Root am referenzierten Registry-Typ erkennt, ob er Factories liefert.
+vom Nutzer vorab registrierte Service-Typen bleibt erhalten.
 
 **Modul-Registry (generiert im Modul, darf `internal` Typen benutzen):**
 
@@ -515,8 +514,9 @@ Implementierungstyp (Fallback-Handler, vom Nutzer registrierte Handler).
   ohne zusätzliches `HashSet`; fehlende Service-Typen werden nur im Fehlerfall gesammelt.
 - **Idempotenz-Marker ist ein privater Typ pro Composition Root**, damit zwei verschiedene Composition Roots (MM5)
   sich nicht gegenseitig abschalten.
-- **Alte Registries** (eigener `HandlerRegistration`-Record, Array-Property) erkennt `ReferencedAssemblyScanner` am
-  Property-Typ; ihre Handler werden per Implementierungstyp plus Validierungsregistrierung registriert.
+- **Keine Abwärtskompatibilität** (Entscheidung 2026-10-14): Registries früherer Generator-Versionen (eigener
+  `HandlerRegistration`-Record, Array-Property) werden nicht unterstützt; Bibliotheken und Composition Root müssen mit
+  derselben Generator-Version gebaut werden. Die im ursprünglichen Plan vorgesehene Erkennung am Registry-Typ entfällt.
 
 ## 6. Neue Diagnostics
 

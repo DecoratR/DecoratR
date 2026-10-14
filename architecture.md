@@ -117,9 +117,8 @@ for cross-assembly decoration (DCTR011/DCTR013), and so must the constraint type
 
 `Handlers` is a `ReadOnlySpan<DecoratR.Metadata.HandlerRegistration>` over a private array; every entry carries the
 service type, the implementation type and the generated factory (`static sp => new Handler(…)`, `null` for the
-`ActivatorUtilities` fallback). Registries emitted by earlier generator versions declare their own
-`HandlerRegistration` record without factories; `ReferencedAssemblyScanner` tells both apart by the type of the
-`Handlers` property, and the composition root registers the handlers of such registries by implementation type.
+`ActivatorUtilities` fallback). Library and composition root must be built with the same generator version; registries
+of earlier versions are not supported.
 
 ### Registration and decorator application at runtime
 

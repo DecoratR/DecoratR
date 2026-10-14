@@ -25,7 +25,6 @@ internal static class WellKnownTypes
     public const string RegistryAttributeName = "DecoratRRegistryAttribute";
     public const string HandlerAttributeName = "DecoratRHandlerAttribute";
     public const string DecoratorMetadataAttributeName = "DecoratRDecoratorAttribute";
-    public const string HandlerRegistrationName = "HandlerRegistration";
     public const string HandlersPropertyName = "Handlers";
 
     public const string ServiceCollectionMetadataName = "Microsoft.Extensions.DependencyInjection.IServiceCollection";

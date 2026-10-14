@@ -436,7 +436,7 @@ The generator calls a constructor directly when the type has exactly one public 
 | `IServiceProvider` | the resolving provider |
 | the handler interface (decorators only, exactly one such parameter) | the inner handler |
 
-Everything else keeps the `ActivatorUtilities` behavior of earlier versions, without a diagnostic: several public constructors, optional, `params`, `ref`, `in` or `out` parameters, `[ServiceKey]` parameters, `[FromKeyedServices]` without an explicit key, and `required` members that the constructor does not set (`[SetsRequiredMembers]`). Such handlers are registered by implementation type, such decorators are created through `ActivatorUtilities.CreateFactory`; the constructor is selected once, on the first resolution. The generated handler registry marks these handlers with the comment `registered by implementation type`. Registrations you add yourself by implementation type are decorated the same way.
+Everything else falls back to `ActivatorUtilities`, without a diagnostic: several public constructors, optional, `params`, `ref`, `in` or `out` parameters, `[ServiceKey]` parameters, `[FromKeyedServices]` without an explicit key, and `required` members that the constructor does not set (`[SetsRequiredMembers]`). Such handlers are registered by implementation type, such decorators are created through `ActivatorUtilities.CreateFactory`; the constructor is selected once, on the first resolution. The generated handler registry marks these handlers with the comment `registered by implementation type`. Registrations you add yourself by implementation type are decorated the same way.
 
 ## What DecoratR Generates
 
@@ -453,7 +453,7 @@ Both classes are placed in a namespace derived from the assembly name and hidden
 
 ### `GenerateDecoratRRegistrations`
 
-Host projects receive `DecoratRServiceCollectionExtensions.g.cs` with `AddDecoratR()` in the `Microsoft.Extensions.DependencyInjection` namespace. It registers local and referenced handlers (each with its validation registration) and applies one decorator pipeline per service type in a single pass over the service collection. Libraries compiled with an earlier DecoratR version, whose registries carry no factories, are still supported: their handlers are registered by implementation type.
+Host projects receive `DecoratRServiceCollectionExtensions.g.cs` with `AddDecoratR()` in the `Microsoft.Extensions.DependencyInjection` namespace. It registers local and referenced handlers (each with its validation registration) and applies one decorator pipeline per service type in a single pass over the service collection.
 
 You do not need to manually register each handler or decorator.
 

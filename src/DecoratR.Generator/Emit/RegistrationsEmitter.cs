@@ -40,10 +40,7 @@ internal static class RegistrationsEmitter
                 usesWrap |= local.Decorator.Constructor is null;
             }
 
-            var hasFactoryRegistries = false;
-            foreach (var registry in referenced.Registries) hasFactoryRegistries |= registry.HasFactories;
-
-            if (hasFactoryRegistries)
+            if (!referenced.RegistryTypes.IsEmpty)
             {
                 w.AppendLine();
                 RuntimeHelpersEmitter.WriteAddHandlers(w);
@@ -115,9 +112,9 @@ internal static class RegistrationsEmitter
             w.AppendLine();
             w.Append("var options = new ").Append(WellKnownTypes.Options).AppendLine("();");
             w.AppendLine("configure?.Invoke(options);");
-            if (!referenced.Registries.IsEmpty || !localHandlers.IsEmpty) w.AppendLine("var lifetime = options.Lifetime;");
+            if (!referenced.RegistryTypes.IsEmpty || !localHandlers.IsEmpty) w.AppendLine("var lifetime = options.Lifetime;");
 
-            if (!referenced.Registries.IsEmpty) WriteReferencedHandlers(w, referenced.Registries);
+            if (!referenced.RegistryTypes.IsEmpty) WriteReferencedHandlers(w, referenced.RegistryTypes);
 
             if (!localHandlers.IsEmpty)
             {
@@ -155,27 +152,13 @@ internal static class RegistrationsEmitter
         }
     }
 
-    private static void WriteReferencedHandlers(SourceWriter w, EquatableArray<ReferencedRegistry> registries)
+    private static void WriteReferencedHandlers(SourceWriter w, EquatableArray<string> registryTypes)
     {
         w.AppendLine();
         w.AppendLine("// Handlers from referenced assemblies");
-        foreach (var registry in registries)
-        {
-            if (registry.HasFactories)
-            {
-                w.Append("AddHandlers(services, ").Append(registry.Type).Append('.').Append(WellKnownTypes.HandlersPropertyName)
-                    .AppendLine(", lifetime);");
-                continue;
-            }
-
-            // Registries of earlier generator versions carry no factories; their handlers are registered by type.
-            using (w.Block("foreach (var handler in " + registry.Type + "." + WellKnownTypes.HandlersPropertyName + ")"))
-            {
-                w.Append("services.Add(new ").Append(WellKnownTypes.ServiceDescriptor)
-                    .AppendLine("(handler.ServiceType, handler.ImplementationType, lifetime));");
-                RuntimeHelpersEmitter.WriteValidationRegistration(w, "handler.ImplementationType");
-            }
-        }
+        foreach (var registry in registryTypes)
+            w.Append("AddHandlers(services, ").Append(registry).Append('.').Append(WellKnownTypes.HandlersPropertyName)
+                .AppendLine(", lifetime);");
     }
 
     private static void WriteLocalRegistration(SourceWriter w, HandlerMetadata handler)

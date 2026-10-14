@@ -236,55 +236,6 @@ public class DirectConstructionTests : GeneratorTestBase
     }
 
     [Fact]
-    public void LegacyRegistryWithoutFactories_IsRegisteredByImplementationType()
-    {
-        // The handler registry exactly as earlier generator versions emitted it, compiled without the generator.
-        var legacyLibrary = CreateCompilation("""
-            using DecoratR;
-
-            [assembly: global::DecoratR.Metadata.DecoratRRegistry("global::LegacyLib.DecoratRHandlerRegistry")]
-            [assembly: global::DecoratR.Metadata.DecoratRHandler("global::LegacyLib.Handler", "global::LegacyLib.Cmd", "string", false, RequestTypeHierarchy = "global::LegacyLib.Cmd;global::DecoratR.IRequest;!class")]
-
-            namespace LegacyLib;
-
-            public sealed record Cmd : IRequest;
-
-            internal sealed class Handler : IRequestHandler<Cmd, string>
-            {
-                public ValueTask<string> HandleAsync(Cmd request, CancellationToken cancellationToken = default) => default;
-            }
-
-            public static class DecoratRHandlerRegistry
-            {
-                public static HandlerRegistration[] Handlers { get; } =
-                [
-                    new(typeof(global::DecoratR.IRequestHandler<global::LegacyLib.Cmd, string>), typeof(global::LegacyLib.Handler)),
-                ];
-
-                public sealed record HandlerRegistration(
-                    global::System.Type ServiceType,
-                    [global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] [property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] global::System.Type ImplementationType);
-            }
-            """, "LegacyLib");
-        legacyLibrary.GetDiagnostics(Ct).Should().NotContain(d => d.Severity == DiagnosticSeverity.Error);
-
-        var host = RunGenerator(CreateCompilation(
-            TestSources.EmptyHost(TestSources.Decorator("LoggingDecorator", 1)),
-            "CompositionRoot",
-            DefaultReferences().Add(legacyLibrary.ToMetadataReference()))).ShouldCompile();
-
-        host.Registrations.Should().Contain("""
-                    foreach (var handler in global::LegacyLib.DecoratRHandlerRegistry.Handlers)
-                    {
-                        services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ServiceType, handler.ImplementationType, lifetime));
-                        services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ImplementationType, global::DecoratR.Metadata.DecoratRServiceKeys.Validation, handler.ImplementationType, lifetime));
-                    }
-            """);
-        host.Registrations.Should().NotContain("AddHandlers(");
-        host.Registrations.GetPipeline("global::LegacyLib.Cmd", "string").Should().Contain("ApplyLoggingDecorator<global::LegacyLib.Cmd, string>(descriptor)");
-    }
-
-    [Fact]
     public void AddDecoratR_ReturnsEarlyWhenAlreadyApplied()
     {
         var registrations = RunGenerator(TestSources.FullPath()).ShouldCompile().Registrations;

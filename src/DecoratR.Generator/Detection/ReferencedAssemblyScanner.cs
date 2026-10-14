@@ -13,7 +13,7 @@ internal static class ReferencedAssemblyScanner
 
     public static ReferencedRegistrationData Scan(Compilation compilation, CancellationToken cancellationToken)
     {
-        var registries = new List<ReferencedRegistry>();
+        var registries = new List<string>();
         var handlers = new List<HandlerMetadata>();
         var decorators = new List<ReferencedDecoratorInfo>();
 
@@ -36,7 +36,7 @@ internal static class ReferencedAssemblyScanner
                     case WellKnownTypes.RegistryAttributeName:
                         if (attribute.ConstructorArguments.Length == 1 &&
                             attribute.ConstructorArguments[0].Value is string registry)
-                            registries.Add(new ReferencedRegistry(registry, HasFactories(assembly, registry)));
+                            registries.Add(registry);
                         break;
 
                     case WellKnownTypes.HandlerAttributeName:
@@ -50,7 +50,7 @@ internal static class ReferencedAssemblyScanner
             }
         }
 
-        registries.Sort(static (a, b) => string.CompareOrdinal(a.Type, b.Type));
+        registries.Sort(string.CompareOrdinal);
         handlers.Sort(HandlerMetadata.Compare);
         decorators.Sort(ReferencedDecoratorInfo.Compare);
 
@@ -58,30 +58,6 @@ internal static class ReferencedAssemblyScanner
             registries.ToImmutableArray(),
             handlers.ToImmutableArray(),
             decorators.ToImmutableArray());
-    }
-
-    /// <summary>
-    /// Whether the registry exposes <c>Handlers</c> as <c>ReadOnlySpan&lt;DecoratR.Metadata.HandlerRegistration&gt;</c>
-    /// (with generated factories). Registries of earlier generator versions declare their own registration record.
-    /// </summary>
-    private static bool HasFactories(IAssemblySymbol assembly, string registryType)
-    {
-        const string globalPrefix = "global::";
-        var metadataName = registryType.StartsWith(globalPrefix, StringComparison.Ordinal)
-            ? registryType.Substring(globalPrefix.Length)
-            : registryType;
-
-        if (assembly.GetTypeByMetadataName(metadataName) is not { } registry) return false;
-
-        foreach (var member in registry.GetMembers(WellKnownTypes.HandlersPropertyName))
-        {
-            if (member is IPropertySymbol { Type: INamedTypeSymbol { Name: "ReadOnlySpan", TypeArguments.Length: 1 } span } &&
-                span.TypeArguments[0] is INamedTypeSymbol { Name: WellKnownTypes.HandlerRegistrationName } element &&
-                element.ContainingNamespace.IsDecoratRMetadataNamespace())
-                return true;
-        }
-
-        return false;
     }
 
     private static bool ReferencesAbstractions(IAssemblySymbol assembly)
