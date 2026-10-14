@@ -14,7 +14,7 @@ public class StreamCrossAssemblyTests : GeneratorTestBase
 
         library.HandlerRegistry.Should().Contain("IStreamRequestHandler<global::TestStreamQuery, string>");
         host.ShouldCompile();
-        host.Registrations.Should().Contain("foreach (var handler in global::HandlerLib.DecoratRHandlerRegistry.Handlers)");
+        host.Registrations.Should().Contain("AddHandlers(services, global::HandlerLib.DecoratRHandlerRegistry.Handlers, lifetime);");
     }
 
     [Fact]
@@ -80,6 +80,7 @@ public class StreamCrossAssemblyTests : GeneratorTestBase
 
         host.ShouldCompile();
         host.Registrations.GetPipeline("global::TestStreamQuery", "string", isStream: true)
-            .Should().Contain("Wrap<global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>, global::LocalStreamDecorator<global::TestStreamQuery, string>>(descriptor);");
+            .Should().Contain("descriptor = ApplyLocalStreamDecorator<global::TestStreamQuery, string>(descriptor);");
+        host.Registrations.Should().Contain("(global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)innerFactory(sp)");
     }
 }

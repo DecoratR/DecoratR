@@ -66,7 +66,8 @@ public class DiagnosticsTests : GeneratorTestBase
             """)).ShouldCompile();
 
         result.Diagnostics.Should().NotContain(d => d.Severity == DiagnosticSeverity.Error);
-        result.Registrations.GetPipeline("global::TestCommand", "string").Should().Contain("global::Swapped<string, global::TestCommand>");
+        result.Registrations.GetPipeline("global::TestCommand", "string").Should().Contain("ApplySwapped<global::TestCommand, string>(descriptor)");
+        result.Registrations.Should().Contain("new global::Swapped<TResponse, TRequest>(");
     }
 
     [Theory]
@@ -232,7 +233,10 @@ public class DiagnosticsTests : GeneratorTestBase
             """)).ShouldCompile();
 
         result.Diagnostic("DCTR012").GetMessage().Should().Contain("NoCtor<TRequest, TResponse>").And.Contain("IRequestHandler<TRequest, TResponse>");
-        result.Registrations.Should().Contain("global::NoCtor<global::TestCommand, string>");
+        result.Registrations.GetPipeline("global::TestCommand", "string").Should().Contain("ApplyNoCtor<global::TestCommand, string>(descriptor)");
+        result.Registrations.Should().Contain(
+            "return Wrap<global::DecoratR.IRequestHandler<TRequest, TResponse>, global::NoCtor<TRequest, TResponse>>(inner);",
+            "without an inner handler parameter the decorator keeps the ActivatorUtilities path");
     }
 
     [Fact]

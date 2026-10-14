@@ -13,6 +13,10 @@ namespace DecoratR.Generator.Model;
 /// The first constraint type that is not public, or <see langword="null"/>. A decorator with such a constraint
 /// cannot be exported through a public apply method (CS0703) and is skipped in the metadata path.
 /// </param>
+/// <param name="Constructor">
+/// The constructor the apply method calls, or <see langword="null"/> when the decorator is created through
+/// <c>ActivatorUtilities</c> (see <see cref="ConstructorAnalyzer"/>).
+/// </param>
 internal sealed record DecoratorMetadata(
     string DecoratorType,
     string TypeArgumentsTemplate,
@@ -21,7 +25,8 @@ internal sealed record DecoratorMetadata(
     EquatableArray<string> RequestConstraints,
     EquatableArray<string> ResponseConstraints,
     string? NonPublicConstraintType,
-    LocationInfo? Location)
+    LocationInfo? Location,
+    ConstructorPlan? Constructor = null)
 {
     /// <summary>Returns the constructed decorator type for the given request/response type names.</summary>
     public string Construct(string requestType, string responseType) =>

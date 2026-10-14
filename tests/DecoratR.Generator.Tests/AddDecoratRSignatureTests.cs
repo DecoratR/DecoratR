@@ -32,7 +32,8 @@ public class AddDecoratRSignatureTests : GeneratorTestBase
     {
         var registrations = RunGenerator(TestSources.FullPath()).ShouldCompile().Registrations;
 
-        registrations.Should().Contain("options.Lifetime));");
+        registrations.Should().Contain("var lifetime = options.Lifetime;");
+        registrations.Should().Contain("lifetime));");
         registrations.Should().NotContain("ServiceLifetime.Transient");
     }
 }

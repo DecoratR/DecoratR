@@ -37,14 +37,20 @@ internal static class DecoratorRegistryEmitter
 
         using (w.Block("public static class " + WellKnownTypes.DecoratorRegistryClassName))
         {
+            var usesWrap = false;
             for (var i = 0; i < decorators.Length; i++)
             {
                 if (i > 0) w.AppendLine();
-                WriteApplyMethod(w, decorators[i], methodNames[i]);
+                FactoryEmitter.WriteApplyMethod(w, decorators[i], methodNames[i], isPublic: true);
+                usesWrap |= decorators[i].Constructor is null;
             }
 
-            w.AppendLine();
-            RuntimeHelpersEmitter.WriteWrap(w);
+            if (usesWrap)
+            {
+                w.AppendLine();
+                RuntimeHelpersEmitter.WriteWrap(w);
+            }
+
             w.AppendLine();
             RuntimeHelpersEmitter.WriteCreateInnerFactory(w);
         }
@@ -68,30 +74,6 @@ internal static class DecoratorRegistryEmitter
         }
 
         return names;
-    }
-
-    private static void WriteApplyMethod(SourceWriter w, DecoratorMetadata decorator, string methodName)
-    {
-        var handlerInterface = WellKnownTypes.HandlerInterface(decorator.IsStream);
-
-        w.AppendLine("/// <summary>");
-        w.Append("/// Wraps a <c>").AppendTypeForDoc(handlerInterface).Append("&lt;TRequest, TResponse&gt;</c> registration with <c>")
-            .AppendTypeForDoc(decorator.Construct("TRequest", "TResponse")).Append("</c> (Order ").Append(decorator.Order).AppendLine(").");
-        w.AppendLine("/// </summary>");
-        w.Append("public static ").Append(WellKnownTypes.ServiceDescriptor).Append(' ').Append(methodName)
-            .AppendLine("<TRequest, TResponse>(");
-        using (w.Indent())
-        {
-            w.Append(WellKnownTypes.ServiceDescriptor).AppendLine(" inner)");
-            ConstraintSerializer.WriteWhereClause(w, "TRequest", decorator.RequestConstraints, "TRequest", "TResponse");
-            ConstraintSerializer.WriteWhereClause(w, "TResponse", decorator.ResponseConstraints, "TRequest", "TResponse");
-        }
-
-        using (w.Block())
-        {
-            w.Append("return Wrap<").Append(handlerInterface).Append("<TRequest, TResponse>, ")
-                .Append(decorator.Construct("TRequest", "TResponse")).AppendLine(">(inner);");
-        }
     }
 
     private static void WriteDecoratorAttribute(SourceWriter w, string applyMethod, DecoratorMetadata decorator)

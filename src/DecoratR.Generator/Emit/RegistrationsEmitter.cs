@@ -17,7 +17,7 @@ internal static class RegistrationsEmitter
         int decoratorCount)
     {
         var handlerCount = localHandlers.Length + referenced.Handlers.Length;
-        var w = new SourceWriter(4096 + handlerCount * 300 + plan.Pipelines.Count * 300);
+        var w = new SourceWriter(4096 + localHandlers.Length * 700 + plan.Pipelines.Count * 300);
 
         w.AppendFileHeader();
         w.Append("namespace ").Append(WellKnownTypes.ExtensionsNamespace).AppendLine(";");
@@ -32,19 +32,43 @@ internal static class RegistrationsEmitter
         {
             WriteAddDecoratR(w, localHandlers, referenced, plan, handlerCount, decoratorCount);
 
+            var usesWrap = false;
+            foreach (var local in plan.LocalApplyMethods)
+            {
+                w.AppendLine();
+                FactoryEmitter.WriteApplyMethod(w, local.Decorator, local.Name, isPublic: false);
+                usesWrap |= local.Decorator.Constructor is null;
+            }
+
+            var hasFactoryRegistries = false;
+            foreach (var registry in referenced.Registries) hasFactoryRegistries |= registry.HasFactories;
+
+            if (hasFactoryRegistries)
+            {
+                w.AppendLine();
+                RuntimeHelpersEmitter.WriteAddHandlers(w);
+            }
+
             if (plan.Pipelines.Count > 0)
             {
                 w.AppendLine();
                 RuntimeHelpersEmitter.WriteDecorate(w);
             }
 
-            if (plan.UsesLocalDecorators)
+            if (usesWrap)
             {
                 w.AppendLine();
                 RuntimeHelpersEmitter.WriteWrap(w);
+            }
+
+            if (plan.LocalApplyMethods.Count > 0)
+            {
                 w.AppendLine();
                 RuntimeHelpersEmitter.WriteCreateInnerFactory(w);
             }
+
+            w.AppendLine();
+            RuntimeHelpersEmitter.WriteMarker(w);
         }
 
         return w.ToString();
@@ -62,6 +86,7 @@ internal static class RegistrationsEmitter
         w.Append("/// Registers ").Append(handlerCount).Append(" handler(s) and applies ").Append(decoratorCount)
             .AppendLine(" decorator(s) discovered in this assembly and its references.");
         w.AppendLine("/// Lower <c>Order</c> values are applied further outside; ties are broken by the fully qualified decorator type name.");
+        w.AppendLine("/// Calling this method more than once has no further effect.");
         w.AppendLine("/// </summary>");
         w.AppendLine("/// <param name=\"services\">The service collection to add the registrations to.</param>");
         w.Append("/// <param name=\"configure\">Optional callback that configures the <see cref=\"").Append(WellKnownTypes.Options)
@@ -76,35 +101,35 @@ internal static class RegistrationsEmitter
 
         using (w.Block())
         {
-            w.Append("var options = new ").Append(WellKnownTypes.Options).AppendLine("();");
-            w.AppendLine("configure?.Invoke(options);");
-
-            if (!referenced.RegistryTypes.IsEmpty)
+            w.AppendLine("// Registering the handlers again would decorate the existing registrations a second time.");
+            using (w.Block("for (var i = 0; i < services.Count; i++)"))
             {
-                w.AppendLine();
-                w.AppendLine("// Handlers from referenced assemblies");
-                foreach (var registry in referenced.RegistryTypes)
+                using (w.Block("if (services[i].ServiceType == typeof(Marker))"))
                 {
-                    using (w.Block("foreach (var handler in " + registry + ".Handlers)"))
-                    {
-                        w.Append("services.Add(new ").Append(WellKnownTypes.ServiceDescriptor)
-                            .AppendLine("(handler.ServiceType, handler.ImplementationType, options.Lifetime));");
-                    }
+                    w.AppendLine("return services;");
                 }
             }
+
+            w.AppendLine();
+            w.Append("services.Add(new ").Append(WellKnownTypes.ServiceDescriptor).AppendLine("(typeof(Marker), Marker.Instance));");
+            w.AppendLine();
+            w.Append("var options = new ").Append(WellKnownTypes.Options).AppendLine("();");
+            w.AppendLine("configure?.Invoke(options);");
+            if (!referenced.Registries.IsEmpty || !localHandlers.IsEmpty) w.AppendLine("var lifetime = options.Lifetime;");
+
+            if (!referenced.Registries.IsEmpty) WriteReferencedHandlers(w, referenced.Registries);
 
             if (!localHandlers.IsEmpty)
             {
                 w.AppendLine();
-                w.AppendLine("// Handlers declared in this assembly");
+                w.AppendLine("// Handlers declared in this assembly, each with a validation registration for ValidateOnBuild");
                 foreach (var handler in localHandlers)
                 {
-                    WriteRegistration(w, handler.ServiceType.ConstructedInterface, handler.HandlerType);
+                    WriteLocalRegistration(w, handler);
 
                     // Handlers without a response are also exposed as IRequestHandler<TRequest>; the facade
                     // resolves the decorated IRequestHandler<TRequest, Unit> pipeline.
-                    if (handler.RegistersVoidFacade)
-                        WriteRegistration(w, handler.VoidFacadeInterface, handler.VoidFacadeImplementation);
+                    if (handler.RegistersVoidFacade) WriteLocalVoidFacadeRegistration(w, handler);
                 }
             }
 
@@ -112,7 +137,10 @@ internal static class RegistrationsEmitter
             {
                 w.AppendLine();
                 w.AppendLine("// Decorator pipelines (innermost decorator first, lower Order = further outside)");
+                w.Append("var pipelines = new ").Append(WellKnownTypes.Dictionary).Append('<').Append(WellKnownTypes.Type)
+                    .Append(", Pipeline>(").Append(plan.Pipelines.Count).AppendLine(");");
                 foreach (var pipeline in plan.Pipelines) WritePipeline(w, pipeline);
+                w.AppendLine("Decorate(services, pipelines);");
             }
 
             foreach (var skipped in plan.SkippedNonPublicServices)
@@ -127,33 +155,80 @@ internal static class RegistrationsEmitter
         }
     }
 
-    private static void WriteRegistration(SourceWriter w, string serviceType, string implementationType)
+    private static void WriteReferencedHandlers(SourceWriter w, EquatableArray<ReferencedRegistry> registries)
     {
-        w.Append("services.Add(new ").Append(WellKnownTypes.ServiceDescriptor).AppendLine("(");
+        w.AppendLine();
+        w.AppendLine("// Handlers from referenced assemblies");
+        foreach (var registry in registries)
+        {
+            if (registry.HasFactories)
+            {
+                w.Append("AddHandlers(services, ").Append(registry.Type).Append('.').Append(WellKnownTypes.HandlersPropertyName)
+                    .AppendLine(", lifetime);");
+                continue;
+            }
+
+            // Registries of earlier generator versions carry no factories; their handlers are registered by type.
+            using (w.Block("foreach (var handler in " + registry.Type + "." + WellKnownTypes.HandlersPropertyName + ")"))
+            {
+                w.Append("services.Add(new ").Append(WellKnownTypes.ServiceDescriptor)
+                    .AppendLine("(handler.ServiceType, handler.ImplementationType, lifetime));");
+                RuntimeHelpersEmitter.WriteValidationRegistration(w, "handler.ImplementationType");
+            }
+        }
+    }
+
+    private static void WriteLocalRegistration(SourceWriter w, HandlerMetadata handler)
+    {
+        var serviceType = "typeof(" + handler.ServiceType.ConstructedInterface + ")";
+        var implementationType = "typeof(" + handler.HandlerType + ")";
+
+        if (handler.Constructor is null)
+        {
+            // The constructor cannot be called directly: registered by implementation type.
+            w.Append("services.Add(new ").Append(WellKnownTypes.ServiceDescriptor).Append('(').Append(serviceType)
+                .Append(", ").Append(implementationType).AppendLine(", lifetime));");
+        }
+        else
+        {
+            w.Append("services.Add(").Append(WellKnownTypes.ServiceDescriptor).AppendLine(".Describe(");
+            using (w.Indent())
+            {
+                w.Append(serviceType).AppendLine(",");
+                FactoryEmitter.WriteHandlerFactory(w, handler.HandlerType, handler.Constructor);
+                w.AppendLine(",");
+                w.AppendLine("lifetime));");
+            }
+        }
+
+        RuntimeHelpersEmitter.WriteValidationRegistration(w, implementationType);
+    }
+
+    private static void WriteLocalVoidFacadeRegistration(SourceWriter w, HandlerMetadata handler)
+    {
+        w.Append("services.Add(").Append(WellKnownTypes.ServiceDescriptor).AppendLine(".Describe(");
         using (w.Indent())
         {
-            w.Append("typeof(").Append(serviceType).AppendLine("),");
-            w.Append("typeof(").Append(implementationType).AppendLine("),");
-            w.AppendLine("options.Lifetime));");
+            w.Append("typeof(").Append(handler.VoidFacadeInterface).AppendLine("),");
+            FactoryEmitter.WriteVoidFacadeFactory(w, handler);
+            w.AppendLine(",");
+            w.AppendLine("lifetime));");
         }
+
+        RuntimeHelpersEmitter.WriteValidationRegistration(w, "typeof(" + handler.VoidFacadeImplementation + ")");
     }
 
     private static void WritePipeline(SourceWriter w, ServicePipeline pipeline)
     {
-        var service = pipeline.Service.ConstructedInterface;
+        var service = pipeline.Service;
 
-        w.Append("Decorate(services, typeof(").Append(service).AppendLine("), static descriptor =>");
-        using (w.Block(closing: "});"))
+        w.Append("pipelines.Add(typeof(").Append(service.ConstructedInterface).AppendLine("), new(static descriptor =>");
+        using (w.Block(closing: "}));"))
         {
             foreach (var step in pipeline.Steps)
             {
-                if (step.LocalConstructedType is not null)
-                    w.Append("descriptor = Wrap<").Append(service).Append(", ").Append(step.LocalConstructedType).Append(">(descriptor);");
-                else
-                    w.Append("descriptor = ").Append(step.ApplyMethod!).Append('<').Append(pipeline.Service.RequestType)
-                        .Append(", ").Append(pipeline.Service.ResponseType).Append(">(descriptor);");
-
-                w.Append(" // Order ").Append(step.Order).AppendLine();
+                w.Append("descriptor = ").Append(step.ApplyMethod).Append('<').Append(service.RequestType)
+                    .Append(", ").Append(service.ResponseType).Append(">(descriptor); // Order ").Append(step.Order).AppendLine();
             }
 
             w.AppendLine("return descriptor;");

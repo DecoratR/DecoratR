@@ -15,8 +15,9 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class DecoratRServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers 5 handler(s) and applies 4 decorator(s) discovered in this assembly and its references.
+    /// Registers 6 handler(s) and applies 4 decorator(s) discovered in this assembly and its references.
     /// Lower <c>Order</c> values are applied further outside; ties are broken by the fully qualified decorator type name.
+    /// Calling this method more than once has no further effect.
     /// </summary>
     /// <param name="services">The service collection to add the registrations to.</param>
     /// <param name="configure">Optional callback that configures the <see cref="global::DecoratR.DecoratROptions"/>, e.g. the handler lifetime.</param>
@@ -25,125 +26,194 @@ public static class DecoratRServiceCollectionExtensions
         this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,
         global::System.Action<global::DecoratR.DecoratROptions>? configure = null)
     {
-        var options = new global::DecoratR.DecoratROptions();
-        configure?.Invoke(options);
-
-        // Handlers from referenced assemblies
-        foreach (var handler in global::Sample.Library.DecoratRHandlerRegistry.Handlers)
+        // Registering the handlers again would decorate the existing registrations a second time.
+        for (var i = 0; i < services.Count; i++)
         {
-            services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ServiceType, handler.ImplementationType, options.Lifetime));
+            if (services[i].ServiceType == typeof(Marker))
+            {
+                return services;
+            }
         }
 
-        // Handlers declared in this assembly
-        services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(
+        services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(typeof(Marker), Marker.Instance));
+
+        var options = new global::DecoratR.DecoratROptions();
+        configure?.Invoke(options);
+        var lifetime = options.Lifetime;
+
+        // Handlers from referenced assemblies
+        AddHandlers(services, global::Sample.Library.DecoratRHandlerRegistry.Handlers, lifetime);
+
+        // Handlers declared in this assembly, each with a validation registration for ValidateOnBuild
+        services.Add(global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             typeof(global::DecoratR.IRequestHandler<global::Sample.Host.Ping, string>),
-            typeof(global::Sample.Host.PingHandler),
-            options.Lifetime));
+            static sp => new global::Sample.Host.PingHandler(),
+            lifetime));
+        services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(typeof(global::Sample.Host.PingHandler), global::DecoratR.Metadata.DecoratRServiceKeys.Validation, typeof(global::Sample.Host.PingHandler), lifetime));
 
         // Decorator pipelines (innermost decorator first, lower Order = further outside)
-        Decorate(services, typeof(global::DecoratR.IRequestHandler<global::Sample.Host.Ping, string>), static descriptor =>
+        var pipelines = new global::System.Collections.Generic.Dictionary<global::System.Type, Pipeline>(6);
+        pipelines.Add(typeof(global::DecoratR.IRequestHandler<global::Sample.Host.Ping, string>), new(static descriptor =>
         {
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_LoggingDecorator<global::Sample.Host.Ping, string>(descriptor); // Order 1
-            descriptor = Wrap<global::DecoratR.IRequestHandler<global::Sample.Host.Ping, string>, global::Sample.Host.TimingDecorator<global::Sample.Host.Ping, string>>(descriptor); // Order 0
+            descriptor = ApplySample_Host_TimingDecorator<global::Sample.Host.Ping, string>(descriptor); // Order 0
             return descriptor;
-        });
-        Decorate(services, typeof(global::DecoratR.IRequestHandler<global::Sample.Library.CreateUser, int>), static descriptor =>
+        }));
+        pipelines.Add(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.CreateUser, int>), new(static descriptor =>
         {
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_CommandDecorator<global::Sample.Library.CreateUser, int>(descriptor); // Order 2
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_LoggingDecorator<global::Sample.Library.CreateUser, int>(descriptor); // Order 1
-            descriptor = Wrap<global::DecoratR.IRequestHandler<global::Sample.Library.CreateUser, int>, global::Sample.Host.TimingDecorator<global::Sample.Library.CreateUser, int>>(descriptor); // Order 0
+            descriptor = ApplySample_Host_TimingDecorator<global::Sample.Library.CreateUser, int>(descriptor); // Order 0
             return descriptor;
-        });
-        Decorate(services, typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>), static descriptor =>
+        }));
+        pipelines.Add(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>), new(static descriptor =>
         {
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_CommandDecorator<global::Sample.Library.DeleteUser, global::DecoratR.Unit>(descriptor); // Order 2
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_LoggingDecorator<global::Sample.Library.DeleteUser, global::DecoratR.Unit>(descriptor); // Order 1
-            descriptor = Wrap<global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>, global::Sample.Host.TimingDecorator<global::Sample.Library.DeleteUser, global::DecoratR.Unit>>(descriptor); // Order 0
+            descriptor = ApplySample_Host_TimingDecorator<global::Sample.Library.DeleteUser, global::DecoratR.Unit>(descriptor); // Order 0
             return descriptor;
-        });
-        Decorate(services, typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>), static descriptor =>
+        }));
+        pipelines.Add(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetReport, string>), new(static descriptor =>
+        {
+            descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_LoggingDecorator<global::Sample.Library.GetReport, string>(descriptor); // Order 1
+            descriptor = ApplySample_Host_TimingDecorator<global::Sample.Library.GetReport, string>(descriptor); // Order 0
+            return descriptor;
+        }));
+        pipelines.Add(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>), new(static descriptor =>
         {
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_LoggingDecorator<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>(descriptor); // Order 1
-            descriptor = Wrap<global::DecoratR.IRequestHandler<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>, global::Sample.Host.TimingDecorator<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>>(descriptor); // Order 0
+            descriptor = ApplySample_Host_TimingDecorator<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>(descriptor); // Order 0
             return descriptor;
-        });
-        Decorate(services, typeof(global::DecoratR.IStreamRequestHandler<global::Sample.Library.StreamUsers, string>), static descriptor =>
+        }));
+        pipelines.Add(typeof(global::DecoratR.IStreamRequestHandler<global::Sample.Library.StreamUsers, string>), new(static descriptor =>
         {
             descriptor = global::Sample.Library.DecoratRDecoratorRegistry.ApplySample_Library_StreamLoggingDecorator<global::Sample.Library.StreamUsers, string>(descriptor); // Order 1
             return descriptor;
-        });
+        }));
+        Decorate(services, pipelines);
 
         return services;
     }
 
     /// <summary>
-    /// Replaces every non-keyed registration of <paramref name="serviceType"/> with the descriptor returned by <paramref name="decorate"/>.
+    /// Wraps a <c>DecoratR.IRequestHandler&lt;TRequest, TResponse&gt;</c> registration with <c>Sample.Host.TimingDecorator&lt;TRequest, TResponse&gt;</c> (Order 0).
     /// </summary>
-    private static void Decorate(
-        global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,
-        global::System.Type serviceType,
-        global::System.Func<global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor, global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor> decorate)
-    {
-        var decorated = false;
-        for (var i = 0; i < services.Count; i++)
-        {
-            var descriptor = services[i];
-            if (descriptor.IsKeyedService || descriptor.ServiceType != serviceType)
-            {
-                continue;
-            }
-
-            services[i] = decorate(descriptor);
-            decorated = true;
-        }
-
-        if (!decorated)
-        {
-            throw new global::System.InvalidOperationException($"DecoratR: no registration of '{serviceType}' was found to decorate.");
-        }
-    }
-
-    /// <summary>
-    /// Returns a descriptor with the lifetime of <paramref name="inner"/> that resolves <typeparamref name="TDecorator"/>
-    /// around the service created by <paramref name="inner"/>. Constructor dependencies are resolved from the provider;
-    /// constructor selection happens once per registration, not per resolution.
-    /// </summary>
-    private static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor Wrap<TService, [global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(
+    private static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor ApplySample_Host_TimingDecorator<TRequest, TResponse>(
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
-        where TService : class
-        where TDecorator : class, TService
+        where TRequest : global::DecoratR.IRequest
     {
         var innerFactory = CreateInnerFactory(inner);
-        var decoratorFactory = global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateFactory(
-            typeof(TDecorator),
-            new global::System.Type[] { typeof(TService) });
-
         return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             inner.ServiceType,
-            provider => decoratorFactory(provider, new object?[] { innerFactory(provider) }),
+            sp => new global::Sample.Host.TimingDecorator<TRequest, TResponse>(
+                sp,
+                (global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp)),
             inner.Lifetime);
     }
 
     /// <summary>
-    /// Creates a factory for the service described by <paramref name="descriptor"/>.
+    /// Registers the handlers of a referenced handler registry: through the generated factory where there is one,
+    /// by implementation type otherwise, plus one validation registration per handler.
+    /// </summary>
+    private static void AddHandlers(
+        global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,
+        global::System.ReadOnlySpan<global::DecoratR.Metadata.HandlerRegistration> handlers,
+        global::Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime)
+    {
+        foreach (ref readonly var handler in handlers)
+        {
+            services.Add(handler.Factory is { } factory
+                ? global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(handler.ServiceType, factory, lifetime)
+                : new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ServiceType, handler.ImplementationType, lifetime));
+            services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ImplementationType, global::DecoratR.Metadata.DecoratRServiceKeys.Validation, handler.ImplementationType, lifetime));
+        }
+    }
+
+    /// <summary>
+    /// Replaces every non-keyed registration of a service type in <paramref name="pipelines"/> with the descriptor
+    /// returned by its pipeline, in a single pass over <paramref name="services"/>.
+    /// </summary>
+    private static void Decorate(
+        global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,
+        global::System.Collections.Generic.Dictionary<global::System.Type, Pipeline> pipelines)
+    {
+        var applied = 0;
+        for (var i = 0; i < services.Count; i++)
+        {
+            var descriptor = services[i];
+            if (descriptor.IsKeyedService)
+            {
+                continue;
+            }
+
+            ref var pipeline = ref global::System.Runtime.InteropServices.CollectionsMarshal.GetValueRefOrNullRef(pipelines, descriptor.ServiceType);
+            if (global::System.Runtime.CompilerServices.Unsafe.IsNullRef(ref pipeline))
+            {
+                continue;
+            }
+
+            services[i] = pipeline.Apply(descriptor);
+            if (!pipeline.Applied)
+            {
+                pipeline.Applied = true;
+                applied++;
+            }
+        }
+
+        if (applied == pipelines.Count)
+        {
+            return;
+        }
+
+        var missing = new global::System.Collections.Generic.List<global::System.Type>();
+        foreach (var pair in pipelines)
+        {
+            if (!pair.Value.Applied)
+            {
+                missing.Add(pair.Key);
+            }
+        }
+
+        throw new global::System.InvalidOperationException($"DecoratR: no registration of '{string.Join("', '", missing)}' was found to decorate.");
+    }
+
+    /// <summary>The decorators of one service type (innermost first) and whether they were applied.</summary>
+    private struct Pipeline
+    {
+        public readonly global::System.Func<global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor, global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor> Apply;
+        public bool Applied;
+
+        public Pipeline(global::System.Func<global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor, global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor> apply)
+        {
+            Apply = apply;
+            Applied = false;
+        }
+    }
+
+    /// <summary>
+    /// Creates a factory for the service described by <paramref name="descriptor"/>. Registrations by implementation type
+    /// go through <c>ActivatorUtilities</c>; their constructor is selected on the first resolution instead of at startup.
     /// </summary>
     private static global::System.Func<global::System.IServiceProvider, object> CreateInnerFactory(
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor descriptor)
     {
-        if (descriptor.ImplementationFactory is not null)
+        if (descriptor.ImplementationFactory is { } implementationFactory)
         {
-            return descriptor.ImplementationFactory;
+            return implementationFactory;
         }
 
-        if (descriptor.ImplementationInstance is not null)
+        if (descriptor.ImplementationInstance is { } instance)
         {
-            var instance = descriptor.ImplementationInstance;
             return _ => instance;
         }
 
-        var factory = global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateFactory(
-            descriptor.ImplementationType!,
-            global::System.Type.EmptyTypes);
-        return provider => factory(provider, null);
+        global::Microsoft.Extensions.DependencyInjection.ObjectFactory? factory = null;
+        return sp => (factory ??= global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateFactory(descriptor.ImplementationType!, global::System.Type.EmptyTypes))(sp, null);
+    }
+
+    /// <summary>Registered by the first <c>AddDecoratR()</c> call; further calls return early.</summary>
+    private sealed class Marker
+    {
+        public static readonly Marker Instance = new();
     }
 }

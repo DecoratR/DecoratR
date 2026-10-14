@@ -30,6 +30,19 @@ internal sealed class LibraryVoidCommandHandler(ExecutionTrace trace) : IRequest
     }
 }
 
+/// <summary>
+/// The optional parameter keeps the generator from calling the constructor directly: the registry entry has no
+/// factory, so the handler is registered by implementation type and created through ActivatorUtilities.
+/// </summary>
+internal sealed class LibraryFallbackQueryHandler(ExecutionTrace trace, string suffix = "!") : IRequestHandler<LibraryFallbackQuery, string>
+{
+    public ValueTask<string> HandleAsync(LibraryFallbackQuery request, CancellationToken cancellationToken = default)
+    {
+        trace.Add(nameof(LibraryFallbackQueryHandler));
+        return ValueTask.FromResult(request.Name + suffix);
+    }
+}
+
 internal sealed class LibraryStreamHandler(ExecutionTrace trace) : IStreamRequestHandler<LibraryStream, int>
 {
     public async IAsyncEnumerable<int> HandleAsync(

@@ -9,6 +9,7 @@
 [assembly: global::DecoratR.Metadata.DecoratRRegistry("global::Sample.Library.DecoratRHandlerRegistry")]
 [assembly: global::DecoratR.Metadata.DecoratRHandler("global::Sample.Library.CreateUserHandler", "global::Sample.Library.CreateUser", "int", false, RequestTypeHierarchy = "global::Sample.Library.CreateUser;global::Sample.Library.ICommand;global::DecoratR.IRequest;global::System.IEquatable<global::Sample.Library.CreateUser>;!class", ResponseTypeHierarchy = "int;global::System.IConvertible;global::System.Numerics.ISignedNumber<int>;global::System.Numerics.IBinaryInteger<int>;global::System.Numerics.IBinaryNumber<int>;global::System.Numerics.IBitwiseOperators<int, int, int>;global::System.Numerics.INumber<int>;global::System.IComparable;global::System.IComparable<int>;global::System.Numerics.IComparisonOperators<int, int, bool>;global::System.Numerics.IModulusOperators<int, int, int>;global::System.Numerics.INumberBase<int>;global::System.Numerics.IEqualityOperators<int, int, bool>;global::System.Numerics.IAdditionOperators<int, int, int>;global::System.Numerics.IAdditiveIdentity<int, int>;global::System.Numerics.IDecrementOperators<int>;global::System.Numerics.IDivisionOperators<int, int, int>;global::System.IEquatable<int>;global::System.Numerics.IIncrementOperators<int>;global::System.Numerics.IMultiplicativeIdentity<int, int>;global::System.Numerics.IMultiplyOperators<int, int, int>;global::System.ISpanFormattable;global::System.IFormattable;global::System.ISpanParsable<int>;global::System.IParsable<int>;global::System.Numerics.ISubtractionOperators<int, int, int>;global::System.Numerics.IUnaryPlusOperators<int, int>;global::System.Numerics.IUnaryNegationOperators<int, int>;global::System.IUtf8SpanFormattable;global::System.IUtf8SpanParsable<int>;global::System.Numerics.IShiftOperators<int, int, int>;global::System.Numerics.IMinMaxValue<int>;global::System.ValueType;!struct;!unmanaged;!new")]
 [assembly: global::DecoratR.Metadata.DecoratRHandler("global::Sample.Library.DeleteUserHandler", "global::Sample.Library.DeleteUser", "global::DecoratR.Unit", false, RequestTypeHierarchy = "global::Sample.Library.DeleteUser;global::Sample.Library.ICommand;global::DecoratR.IRequest;global::System.IEquatable<global::Sample.Library.DeleteUser>;!class", ResponseTypeHierarchy = "global::DecoratR.Unit;global::System.IEquatable<global::DecoratR.Unit>;global::System.ValueType;!struct;!unmanaged;!new")]
+[assembly: global::DecoratR.Metadata.DecoratRHandler("global::Sample.Library.GetReportHandler", "global::Sample.Library.GetReport", "string", false, RequestTypeHierarchy = "global::Sample.Library.GetReport;global::DecoratR.IRequest;global::System.IEquatable<global::Sample.Library.GetReport>;!class;!new", ResponseTypeHierarchy = "string;global::System.IComparable;global::System.IConvertible;global::System.Collections.Generic.IEnumerable<char>;global::System.Collections.IEnumerable;global::System.IComparable<string?>;global::System.IEquatable<string?>;global::System.ICloneable;global::System.ISpanParsable<string>;global::System.IParsable<string>;!class")]
 [assembly: global::DecoratR.Metadata.DecoratRHandler("global::Sample.Library.GetUsersHandler", "global::Sample.Library.GetUsers", "global::System.Collections.Generic.IReadOnlyList<string>", false, RequestTypeHierarchy = "global::Sample.Library.GetUsers;global::DecoratR.IRequest;global::System.IEquatable<global::Sample.Library.GetUsers>;!class;!new", ResponseTypeHierarchy = "global::System.Collections.Generic.IReadOnlyList<string>;global::System.Collections.Generic.IReadOnlyCollection<string>;global::System.Collections.Generic.IEnumerable<string>;global::System.Collections.IEnumerable;!class")]
 [assembly: global::DecoratR.Metadata.DecoratRHandler("global::Sample.Library.StreamUsersHandler", "global::Sample.Library.StreamUsers", "string", true, RequestTypeHierarchy = "global::Sample.Library.StreamUsers;global::DecoratR.IStreamRequest;global::System.IEquatable<global::Sample.Library.StreamUsers>;!class;!new", ResponseTypeHierarchy = "string;global::System.IComparable;global::System.IConvertible;global::System.Collections.Generic.IEnumerable<char>;global::System.Collections.IEnumerable;global::System.IComparable<string?>;global::System.IEquatable<string?>;global::System.ICloneable;global::System.ISpanParsable<string>;global::System.IParsable<string>;!class")]
 
@@ -23,25 +24,32 @@ namespace Sample.Library;
 public static class DecoratRHandlerRegistry
 {
     /// <summary>
-    /// 4 handler(s) discovered in this assembly:
+    /// 5 handler(s) discovered in this assembly:
     /// <list type="bullet">
     /// <item><description><c>Sample.Library.CreateUserHandler</c> implements <c>DecoratR.IRequestHandler&lt;Sample.Library.CreateUser, int&gt;</c></description></item>
     /// <item><description><c>Sample.Library.DeleteUserHandler</c> implements <c>DecoratR.IRequestHandler&lt;Sample.Library.DeleteUser, DecoratR.Unit&gt;</c></description></item>
+    /// <item><description><c>Sample.Library.GetReportHandler</c> implements <c>DecoratR.IRequestHandler&lt;Sample.Library.GetReport, string&gt;</c></description></item>
     /// <item><description><c>Sample.Library.GetUsersHandler</c> implements <c>DecoratR.IRequestHandler&lt;Sample.Library.GetUsers, System.Collections.Generic.IReadOnlyList&lt;string&gt;&gt;</c></description></item>
     /// <item><description><c>Sample.Library.StreamUsersHandler</c> implements <c>DecoratR.IStreamRequestHandler&lt;Sample.Library.StreamUsers, string&gt;</c></description></item>
     /// </list>
     /// </summary>
-    public static HandlerRegistration[] Handlers { get; } =
-    [
-        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.CreateUser, int>), typeof(global::Sample.Library.CreateUserHandler)),
-        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>), typeof(global::Sample.Library.DeleteUserHandler)),
-        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser>), typeof(global::DecoratR.VoidRequestHandler<global::Sample.Library.DeleteUser>)),
-        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>), typeof(global::Sample.Library.GetUsersHandler)),
-        new(typeof(global::DecoratR.IStreamRequestHandler<global::Sample.Library.StreamUsers, string>), typeof(global::Sample.Library.StreamUsersHandler)),
-    ];
+    public static global::System.ReadOnlySpan<global::DecoratR.Metadata.HandlerRegistration> Handlers => Registrations;
 
-    /// <summary>The service type and implementation type of one registered handler.</summary>
-    public sealed record HandlerRegistration(
-        global::System.Type ServiceType,
-        [global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] [property: global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] global::System.Type ImplementationType);
+    private static readonly global::DecoratR.Metadata.HandlerRegistration[] Registrations =
+    [
+        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.CreateUser, int>), typeof(global::Sample.Library.CreateUserHandler),
+            static sp => new global::Sample.Library.CreateUserHandler(
+                global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::Sample.Library.IUserStore>(sp))),
+        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>), typeof(global::Sample.Library.DeleteUserHandler),
+            static sp => new global::Sample.Library.DeleteUserHandler()),
+        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser>), typeof(global::DecoratR.VoidRequestHandler<global::Sample.Library.DeleteUser>),
+            static sp => new global::DecoratR.VoidRequestHandler<global::Sample.Library.DeleteUser>(global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>>(sp))),
+        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetReport, string>), typeof(global::Sample.Library.GetReportHandler)), // registered by implementation type: the constructor cannot be called directly
+        new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>), typeof(global::Sample.Library.GetUsersHandler),
+            static sp => new global::Sample.Library.GetUsersHandler(
+                global::Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetRequiredKeyedService<global::Sample.Library.IUserStore>(sp, "readonly"),
+                sp)),
+        new(typeof(global::DecoratR.IStreamRequestHandler<global::Sample.Library.StreamUsers, string>), typeof(global::Sample.Library.StreamUsersHandler),
+            static sp => new global::Sample.Library.StreamUsersHandler()),
+    ];
 }

@@ -45,34 +45,51 @@ internal static class HandlerRegistryEmitter
             w.AppendLine("/// </list>");
             w.AppendLine("/// </summary>");
 
-            using (w.Block("public static HandlerRegistration[] Handlers { get; } =", opening: "[", closing: "];"))
+            w.Append("public static ").Append(WellKnownTypes.ReadOnlySpan).Append('<').Append(WellKnownTypes.HandlerRegistration)
+                .Append("> ").Append(WellKnownTypes.HandlersPropertyName).AppendLine(" => Registrations;");
+            w.AppendLine();
+
+            w.Append("private static readonly ").Append(WellKnownTypes.HandlerRegistration).AppendLine("[] Registrations =");
+            using (w.Block(opening: "[", closing: "];"))
             {
                 foreach (var handler in handlers)
                 {
-                    w.Append("new(typeof(").Append(handler.ServiceType.ConstructedInterface)
-                        .Append("), typeof(").Append(handler.HandlerType).AppendLine(")),");
+                    WriteRegistration(w, handler);
 
                     // Handlers without a response are also exposed as IRequestHandler<TRequest>; the facade
                     // resolves the decorated IRequestHandler<TRequest, Unit> pipeline.
-                    if (handler.RegistersVoidFacade)
-                        w.Append("new(typeof(").Append(handler.VoidFacadeInterface)
-                            .Append("), typeof(").Append(handler.VoidFacadeImplementation).AppendLine(")),");
+                    if (handler.RegistersVoidFacade) WriteVoidFacadeRegistration(w, handler);
                 }
-            }
-
-            w.AppendLine();
-            w.AppendLine("/// <summary>The service type and implementation type of one registered handler.</summary>");
-            w.AppendLine("public sealed record HandlerRegistration(");
-            using (w.Indent())
-            {
-                w.Append(WellKnownTypes.Type).AppendLine(" ServiceType,");
-                w.Append('[').Append(WellKnownTypes.DynamicallyAccessedPublicConstructors).Append("] [property: ")
-                    .Append(WellKnownTypes.DynamicallyAccessedPublicConstructors).Append("] ")
-                    .Append(WellKnownTypes.Type).AppendLine(" ImplementationType);");
             }
         }
 
         return w.ToString();
+    }
+
+    /// <summary>
+    /// Writes one <c>HandlerRegistration</c>: with a generated factory, or without one (registration by implementation
+    /// type) when the generator cannot call the handler's constructor directly.
+    /// </summary>
+    private static void WriteRegistration(SourceWriter w, HandlerMetadata handler)
+    {
+        w.Append("new(typeof(").Append(handler.ServiceType.ConstructedInterface).Append("), typeof(").Append(handler.HandlerType).Append(')');
+
+        if (handler.Constructor is null)
+        {
+            w.AppendLine("), // registered by implementation type: the constructor cannot be called directly");
+            return;
+        }
+
+        w.AppendLine(",");
+        using (w.Indent()) FactoryEmitter.WriteHandlerFactory(w, handler.HandlerType, handler.Constructor);
+        w.AppendLine("),");
+    }
+
+    private static void WriteVoidFacadeRegistration(SourceWriter w, HandlerMetadata handler)
+    {
+        w.Append("new(typeof(").Append(handler.VoidFacadeInterface).Append("), typeof(").Append(handler.VoidFacadeImplementation).AppendLine("),");
+        using (w.Indent()) FactoryEmitter.WriteVoidFacadeFactory(w, handler);
+        w.AppendLine("),");
     }
 
     private static void WriteHandlerAttribute(SourceWriter w, HandlerMetadata handler)

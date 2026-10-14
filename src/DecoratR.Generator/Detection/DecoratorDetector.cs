@@ -69,7 +69,8 @@ internal static class DecoratorDetector
             ConstraintSerializer.Serialize(requestParameter, requestParameter, responseParameter),
             ConstraintSerializer.Serialize(responseParameter, requestParameter, responseParameter),
             FindNonPublicConstraintType(requestParameter) ?? FindNonPublicConstraintType(responseParameter),
-            location);
+            location,
+            ConstructorAnalyzer.ForDecorator(symbol, handlerInterface, requestParameter, responseParameter));
 
         return new DecoratorDetectionResult(decorator, diagnostics.ToImmutable());
     }

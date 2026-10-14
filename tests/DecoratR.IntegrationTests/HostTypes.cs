@@ -1,4 +1,5 @@
 using DecoratR.IntegrationTests.Library;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR.IntegrationTests;
 
@@ -33,6 +34,19 @@ public sealed class HostQueryHandler(ExecutionTrace trace) : IRequestHandler<Hos
     {
         trace.Add(nameof(HostQueryHandler));
         return ValueTask.FromResult(7);
+    }
+}
+
+public sealed record HostKeyedQuery : IRequest;
+
+/// <summary>Takes a keyed service and the service provider; both are passed by the generated factory.</summary>
+public sealed class HostKeyedQueryHandler([FromKeyedServices("greeting")] string greeting, IServiceProvider provider)
+    : IRequestHandler<HostKeyedQuery, string>
+{
+    public ValueTask<string> HandleAsync(HostKeyedQuery request, CancellationToken cancellationToken = default)
+    {
+        provider.GetRequiredService<ExecutionTrace>().Add(nameof(HostKeyedQueryHandler));
+        return ValueTask.FromResult(greeting);
     }
 }
 
@@ -87,6 +101,27 @@ public sealed class HostStructResponseDecorator<TRequest, TResponse>(
         trace.Add("HostStructResponseDecorator:enter");
         var response = await inner.HandleAsync(request, cancellationToken);
         trace.Add("HostStructResponseDecorator:exit");
+        return response;
+    }
+}
+
+/// <summary>
+/// Applies only to <see cref="ITaggedRequest"/> pipelines (Order 8). The optional parameter keeps the generator from
+/// calling the constructor directly, so the decorator is created through ActivatorUtilities (<c>Wrap</c>).
+/// </summary>
+[Decorator(Order = 8)]
+public sealed class HostFallbackDecorator<TRequest, TResponse>(
+    IRequestHandler<TRequest, TResponse> inner,
+    ExecutionTrace trace,
+    string name = "HostFallbackDecorator")
+    : IRequestHandler<TRequest, TResponse>
+    where TRequest : ITaggedRequest
+{
+    public async ValueTask<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+    {
+        trace.Add(name + ":enter");
+        var response = await inner.HandleAsync(request, cancellationToken);
+        trace.Add(name + ":exit");
         return response;
     }
 }

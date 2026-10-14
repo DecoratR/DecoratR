@@ -15,6 +15,7 @@ public class PipelineTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<ExecutionTrace>();
+        services.AddKeyedSingleton("greeting", "Hello from a keyed service");
         extra?.Invoke(services);
         services.AddDecoratR(configure);
 
@@ -259,6 +260,71 @@ public class PipelineTests
 
         await raw.HandleAsync(new HostQuery(), TestContext.Current.CancellationToken);
         trace.Entries.Should().Equal("HostQueryHandler");
+    }
+
+    [Fact]
+    public async Task FallbackHandlerAndDecorator_AreCreatedThroughActivatorUtilities()
+    {
+        var (provider, trace) = Build();
+        using var _ = provider;
+
+        var handler = provider.GetRequiredService<IRequestHandler<LibraryFallbackQuery, string>>();
+        var result = await handler.HandleAsync(new LibraryFallbackQuery("Ada"), TestContext.Current.CancellationToken);
+
+        result.Should().Be("Ada!", "ActivatorUtilities passes the default value of the optional parameter");
+        trace.Entries.Should().Equal(
+            "HostOuterDecorator:enter",
+            "HostTiedDecorator:enter",
+            "LibraryLoggingDecorator:enter",
+            "HostFallbackDecorator:enter",       // Order 8, created through Wrap
+            "LibraryFallbackQueryHandler",       // registered by implementation type
+            "HostFallbackDecorator:exit",
+            "LibraryLoggingDecorator:exit",
+            "HostTiedDecorator:exit",
+            "HostOuterDecorator:exit");
+    }
+
+    [Fact]
+    public async Task KeyedServiceAndServiceProvider_ArePassedByGeneratedFactory()
+    {
+        var (provider, trace) = Build();
+        using var _ = provider;
+
+        var handler = provider.GetRequiredService<IRequestHandler<HostKeyedQuery, string>>();
+        var result = await handler.HandleAsync(new HostKeyedQuery(), TestContext.Current.CancellationToken);
+
+        result.Should().Be("Hello from a keyed service");
+        trace.Entries.Should().Contain("HostKeyedQueryHandler");
+    }
+
+    [Fact]
+    public void ValidateScopes_ReportsCaptiveDependencyOfDecoratedHandler()
+    {
+        // A singleton pipeline that captures a scoped dependency: reported through the validation registration of the
+        // handler, although the pipeline itself is a factory registration.
+        var services = new ServiceCollection();
+        services.AddScoped<ExecutionTrace>();
+        services.AddKeyedSingleton("greeting", "Hello");
+        services.AddDecoratR(options => options.Lifetime = ServiceLifetime.Singleton);
+
+        var build = () => services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        build.Should().Throw<AggregateException>().WithMessage("*scoped service*ExecutionTrace*singleton*");
+    }
+
+    [Fact]
+    public void Handlers_AreFactoryRegistrations_WithKeyedValidationRegistration()
+    {
+        var services = new ServiceCollection();
+        services.AddDecoratR();
+
+        var registration = services.Single(d => !d.IsKeyedService && d.ServiceType == typeof(IRequestHandler<HostQuery, int>));
+        registration.ImplementationFactory.Should().NotBeNull();
+
+        var validation = services.Single(d => d.IsKeyedService && d.ServiceKey is DecoratR.Metadata.DecoratRServiceKeys.Validation &&
+                                              d.ServiceType == typeof(HostQueryHandler));
+        validation.KeyedImplementationType.Should().Be<HostQueryHandler>();
+        validation.Lifetime.Should().Be(ServiceLifetime.Transient);
     }
 
     [Fact]

@@ -10,11 +10,17 @@ namespace DecoratR.Generator.Model;
 /// pipeline as <c>IRequestHandler&lt;TRequest&gt;</c> through <c>VoidRequestHandler&lt;TRequest&gt;</c>.
 /// Always <see langword="false"/> for referenced handlers: their facade is part of the library's registry.
 /// </param>
+/// <param name="Constructor">
+/// The constructor the generated factory calls, or <see langword="null"/> when the handler is registered by its
+/// implementation type (see <see cref="Detection.ConstructorAnalyzer"/>). Always <see langword="null"/> for referenced
+/// handlers: their factories are part of the library's registry.
+/// </param>
 internal sealed record HandlerMetadata(
     string HandlerType,
     ServiceTypeInfo ServiceType,
     LocationInfo? Location,
-    bool RegistersVoidFacade = false)
+    bool RegistersVoidFacade = false,
+    ConstructorPlan? Constructor = null)
 {
     /// <summary>The facade service type, e.g. <c>global::DecoratR.IRequestHandler&lt;global::Cmd&gt;</c>.</summary>
     public string VoidFacadeInterface => WellKnownTypes.RequestHandler + "<" + ServiceType.RequestType + ">";

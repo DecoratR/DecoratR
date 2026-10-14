@@ -26,7 +26,7 @@ public class EdgeCaseTests : GeneratorTestBase
             """ + "\n" + TestSources.Decorator("LoggingDecorator", 1))).ShouldCompile().Registrations;
 
         registrations.Should().Contain("typeof(global::DecoratR.IRequestHandler<global::Wrapper<int>, string>)");
-        registrations.GetPipeline("global::Wrapper<int>", "string").Should().Contain("global::LoggingDecorator<global::Wrapper<int>, string>");
+        registrations.GetPipeline("global::Wrapper<int>", "string").Should().Contain("ApplyLoggingDecorator<global::Wrapper<int>, string>(descriptor)");
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class EdgeCaseTests : GeneratorTestBase
             }
             """ + "\n" + TestSources.Decorator("LoggingDecorator", 1))).ShouldCompile().Registrations;
 
-        registrations.GetDecoratorSection().CountOccurrences("Decorate(services").Should().Be(4);
+        registrations.GetDecoratorSection().CountOccurrences("pipelines.Add(").Should().Be(4);
         registrations.Should().Contain("global::DecoratR.IRequestHandler<global::A, (int Count, string Name)>");
         registrations.Should().Contain("global::DecoratR.IRequestHandler<global::D, global::System.Collections.Generic.IReadOnlyDictionary<string, global::System.Collections.Generic.List<int>>>");
     }
@@ -101,7 +101,7 @@ public class EdgeCaseTests : GeneratorTestBase
             """)).ShouldCompile();
 
         result.Diagnostics.Should().NotContain(d => d.Id == "DCTR007");
-        result.Registrations.CountOccurrences("services.Add(").Should().Be(1);
+        result.Registrations.CountLocalRegistrations().Should().Be(1);
         result.Registrations.Should().Contain("typeof(global::DerivedHandler)");
     }
 
@@ -125,7 +125,8 @@ public class EdgeCaseTests : GeneratorTestBase
             """)).ShouldCompile();
 
         result.Diagnostics.Should().NotContain(d => d.Severity >= DiagnosticSeverity.Warning);
-        result.Registrations.GetPipeline("global::TestCommand", "string").Should().Contain("global::LoggingDecorator<global::TestCommand, string>");
+        result.Registrations.GetPipeline("global::TestCommand", "string").Should().Contain("ApplyLoggingDecorator<global::TestCommand, string>(descriptor)");
+        result.Registrations.Should().Contain("new global::LoggingDecorator<TRequest, TResponse>(");
     }
 
     [Fact]
@@ -362,7 +363,8 @@ public class EdgeCaseTests : GeneratorTestBase
             """).ShouldCompile().Registrations;
 
         registrations.Should().Contain("typeof(global::@event.CmdHandler)");
-        registrations.GetPipeline("global::@event.Cmd", "string").Should().Contain("global::@event.LoggingDecorator<global::@event.Cmd, string>");
+        registrations.GetPipeline("global::@event.Cmd", "string").Should().Contain("Apply_event_LoggingDecorator<global::@event.Cmd, string>(descriptor)");
+        registrations.Should().Contain("new global::@event.LoggingDecorator<TRequest, TResponse>(");
     }
 
     [Fact]
@@ -473,7 +475,7 @@ public class EdgeCaseTests : GeneratorTestBase
             """)).ShouldCompile();
 
         result.Registrations.Should().Contain("typeof(global::DecoratR.IRequestHandler<global::GetProduct, global::Product?>)");
-        result.Registrations.GetPipeline("global::GetProduct", "global::Product?").Should().Contain("global::QueryDecorator<global::GetProduct, global::Product?>");
+        result.Registrations.GetPipeline("global::GetProduct", "global::Product?").Should().Contain("ApplyQueryDecorator<global::GetProduct, global::Product?>(descriptor)");
         result.Registrations.GetPipeline("global::GetName", "string").Should().Contain("QueryDecorator");
         GeneratedWarnings(result).Should().BeEmpty();
     }

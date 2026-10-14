@@ -11,12 +11,13 @@ namespace DecoratR.IntegrationTests;
 /// </summary>
 public class ModularMonolithRegressionTests
 {
-    [Fact(Skip = "MM1 · Phase 1.4: dekorierte Handler sind Factory-Registrierungen, ValidateOnBuild prüft ihre Abhängigkeiten nicht")]
+    [Fact]
     public void MM1_ValidateOnBuild_ReportsMissingDependencyOfDecoratedHandler()
     {
         // ExecutionTrace, a dependency of every handler and decorator, is deliberately not registered: in a modular
         // monolith this is the module whose AddXModule() call was forgotten.
         var services = new ServiceCollection();
+        services.AddKeyedSingleton("greeting", "Hello");
         services.AddDecoratR();
 
         var build = () => services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
@@ -24,7 +25,7 @@ public class ModularMonolithRegressionTests
         build.Should().Throw<AggregateException>().WithMessage("*ExecutionTrace*");
     }
 
-    [Fact(Skip = "MM7 · Phase 1.5: AddDecoratR() ist nicht idempotent, ein zweiter Aufruf dekoriert die erste Registrierung erneut")]
+    [Fact]
     public async Task MM7_AddDecoratRTwice_RegistersAndDecoratesOnce()
     {
         var services = new ServiceCollection();

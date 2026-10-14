@@ -9,15 +9,15 @@ public static class GeneratedOutputExtensions
     public static string GetDecoratorSection(this string registrations) =>
         registrations.GetSectionBetween("// Decorator pipelines", "return services;");
 
-    /// <summary>The <c>Decorate(...)</c> call for one service type, or <see langword="null"/> when none exists.</summary>
+    /// <summary>The <c>pipelines.Add(...)</c> entry for one service type, or <see langword="null"/> when none exists.</summary>
     public static string? TryGetPipeline(this string registrations, string requestType, string responseType, bool isStream = false)
     {
-        var marker = $"Decorate(services, typeof({(isStream ? StreamRequestHandler : RequestHandler)}<{requestType}, {responseType}>)";
+        var marker = $"pipelines.Add(typeof({(isStream ? StreamRequestHandler : RequestHandler)}<{requestType}, {responseType}>)";
         var start = registrations.IndexOf(marker, StringComparison.Ordinal);
         if (start < 0) return null;
 
-        var end = registrations.IndexOf("});", start, StringComparison.Ordinal);
-        return registrations[start..(end + 3)];
+        var end = registrations.IndexOf("}));", start, StringComparison.Ordinal);
+        return registrations[start..(end + 4)];
     }
 
     public static string GetPipeline(this string registrations, string requestType, string responseType, bool isStream = false) =>
@@ -56,6 +56,13 @@ public static class GeneratedOutputExtensions
         var end = decoratorRegistry.IndexOf("    }", start, StringComparison.Ordinal);
         return decoratorRegistry[lineStart..(end + 5)];
     }
+
+    /// <summary>
+    /// The number of handler registrations <c>AddDecoratR()</c> emits for handlers of its own assembly (including
+    /// <c>IRequestHandler&lt;TRequest&gt;</c> facades): each one comes with exactly one validation registration.
+    /// </summary>
+    public static int CountLocalRegistrations(this string registrations) =>
+        registrations.CountOccurrences("global::DecoratR.Metadata.DecoratRServiceKeys.Validation, typeof(");
 
     public static int CountOccurrences(this string text, string pattern)
     {

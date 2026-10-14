@@ -66,13 +66,15 @@ internal static class HandlerDetector
                 EquatableArray<HandlerMetadata>.Empty,
                 ImmutableArray.Create(DiagnosticInfo.Create(Diagnostics.TypeNotAccessible, location, handlerType)));
 
+        var constructor = ConstructorAnalyzer.ForHandler(symbol);
         var handlers = ImmutableArray.CreateBuilder<HandlerMetadata>(interfaces.Count);
         foreach (var (iface, isStream) in interfaces)
             handlers.Add(new HandlerMetadata(
                 handlerType,
                 ServiceTypeInfo.Create(iface, isStream, context.SemanticModel.Compilation),
                 location,
-                symbol.RegistersVoidFacade(iface, isStream)));
+                symbol.RegistersVoidFacade(iface, isStream),
+                constructor));
 
         return new HandlerDetectionResult(handlers.ToImmutable(), EquatableArray<DiagnosticInfo>.Empty);
     }

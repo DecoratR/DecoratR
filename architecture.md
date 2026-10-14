@@ -11,17 +11,20 @@ src/
 │                              registration), IStreamRequest, IStreamRequestHandler,
 │                              DecoratorAttribute, DecoratROptions, the two trigger attributes
 │                              ([GenerateDecoratRMetadata], [GenerateDecoratRRegistrations]) and the
-│                              DecoratR.Metadata attributes that carry cross-assembly metadata.
+│                              DecoratR.Metadata infrastructure: the attributes that carry cross-assembly
+│                              metadata, HandlerRegistration (registry entry with generated factory) and
+│                              DecoratRServiceKeys (key of the validation registrations).
 │                              Multi-targets net8.0/net9.0/net10.0, AOT-compatible, depends on
 │                              Microsoft.Extensions.DependencyInjection.Abstractions.
 │
 └── DecoratR.Generator/       Roslyn incremental generator (netstandard2.0), shipped as analyzer.
-    ├── Detection/            Symbol inspection: HandlerDetector, DecoratorDetector, ConstraintSerializer,
-    │                          TypeHierarchy, ReferencedAssemblyScanner, SymbolExtensions
+    ├── Detection/            Symbol inspection: HandlerDetector, DecoratorDetector, ConstructorAnalyzer,
+    │                          ConstraintSerializer, TypeHierarchy, ReferencedAssemblyScanner, SymbolExtensions
     ├── Model/                Equatable pipeline values (records): HandlerMetadata, DecoratorMetadata,
-    │                          ServiceTypeInfo, ReferencedRegistrationData, DiagnosticInfo, LocationInfo, …
+    │                          ConstructorPlan, ServiceTypeInfo, ReferencedRegistrationData, DiagnosticInfo, …
     ├── Emit/                 SourceWriter plus the emitters: HandlerRegistryEmitter, DecoratorRegistryEmitter,
-    │                          RegistrationsEmitter, RuntimeHelpersEmitter, DecorationPlanner, ConstraintMatcher
+    │                          RegistrationsEmitter, FactoryEmitter, RuntimeHelpersEmitter, DecorationPlanner,
+    │                          ConstraintMatcher
     ├── Diagnostics.cs        DCTR001–DCTR013 descriptors (tracked in AnalyzerReleases.*.md)
     └── DecoratRIncrementalGenerator.cs   Pipeline wiring and output steps
 
@@ -88,6 +91,13 @@ All values flowing between steps are records with structural equality (`Equatabl
   `TRequest`/`TResponse` arguments of exactly one handler interface (the declared order of the type parameters
   does not matter). Constraints on both type parameters are captured, including `class`, `struct`, `notnull`,
   `unmanaged`, `new()` and generic constraints such as `where TRequest : IQuery<TResponse>`.
+- **Constructors** (`ConstructorAnalyzer` → `ConstructorPlan`): a handler or decorator is constructed directly
+  by generated code when it has exactly one public constructor (or exactly one marked
+  `[ActivatorUtilitiesConstructor]`) whose parameters are services (`GetRequiredService<T>`),
+  `[FromKeyedServices(key)]` services with a constant key, the `IServiceProvider` or, for decorators, exactly one
+  inner handler. Everything else (several constructors, optional, `params`, `ref`/`in`/`out` or `[ServiceKey]`
+  parameters, keys that are not constant, unset `required` members) silently keeps the `ActivatorUtilities` path:
+  the plan is `null`, handlers are registered by implementation type, decorators go through `Wrap`.
 
 ### Cross-assembly composition
 
@@ -101,24 +111,48 @@ Type hierarchies are semicolon-delimited lists of fully qualified type names (th
 its base types) plus type facts (`!class`, `!struct`, `!unmanaged`, `!new`). Constraints use the same encoding
 with the decorator's own type parameters replaced by `{TRequest}`/`{TResponse}` placeholders, which the
 composition root substitutes before matching. The composition root only ever references a library's
-`DecoratRHandlerRegistry.Handlers` array and its `DecoratRDecoratorRegistry.ApplyXxx<TRequest, TResponse>(ServiceDescriptor)`
+`DecoratRHandlerRegistry.Handlers` and its `DecoratRDecoratorRegistry.ApplyXxx<TRequest, TResponse>(ServiceDescriptor)`
 methods, so internal handlers and decorators work across projects. Request and response types must be public
 for cross-assembly decoration (DCTR011/DCTR013), and so must the constraint types of exported decorators (DCTR014).
 
-### Decorator application at runtime
+`Handlers` is a `ReadOnlySpan<DecoratR.Metadata.HandlerRegistration>` over a private array; every entry carries the
+service type, the implementation type and the generated factory (`static sp => new Handler(…)`, `null` for the
+`ActivatorUtilities` fallback). Registries emitted by earlier generator versions declare their own
+`HandlerRegistration` record without factories; `ReferencedAssemblyScanner` tells both apart by the type of the
+`Handlers` property, and the composition root registers the handlers of such registries by implementation type.
 
-For each service type the generated code calls `Decorate(services, serviceType, descriptor => …)`, which
-replaces every non-keyed registration of the service type with a descriptor built by chaining `Wrap<TService, TDecorator>`
-calls (innermost decorator first). `Wrap` uses `ActivatorUtilities.CreateFactory` once per registration, so
-constructor selection is not repeated on every resolution, and it preserves the lifetime of the wrapped
-registration. The helpers are private and emitted into every registry and composition root, so each assembly
-is self-contained.
+### Registration and decorator application at runtime
+
+`AddDecoratR()` runs in four steps:
+
+1. **Idempotency.** If the private `Marker` type is already registered, it returns immediately; otherwise it
+   registers it. A second call would register every handler again and decorate the first registrations twice.
+2. **Handlers.** Each handler is registered through its generated factory (`ServiceDescriptor.Describe`), local
+   handlers inline, referenced ones through `AddHandlers(services, Registry.Handlers, lifetime)`.
+3. **Validation registrations.** For every handler, a keyed registration
+   `(implementationType, DecoratRServiceKeys.Validation, implementationType, lifetime)` is added. It is never resolved;
+   `ValidateOnBuild`/`ValidateScopes` build its call site and report missing dependencies and captive dependencies,
+   which they cannot see through factory registrations. Resolution itself stays on the generated factory, which is
+   faster than resolving the handler through the container, especially under NativeAOT.
+4. **Decoration in one pass.** The generated code fills a `Dictionary<Type, Pipeline>` (one entry per decorated
+   service type, innermost decorator first) and `Decorate` walks the service collection once, replacing every
+   non-keyed registration of a decorated service type, including registrations the user added before. Service
+   types without any registration are reported together at the end.
+
+Each pipeline step calls an apply method: the public one of a referenced `DecoratRDecoratorRegistry` or a private
+one emitted into the composition root for local decorators. Apply methods construct the decorator with `new`
+around `CreateInnerFactory(inner)` and keep the lifetime of the wrapped registration; resolving a pipeline therefore
+costs one delegate call and one allocation per layer, without `object[]` arguments or reflection. Only decorators
+without a constructor plan use `Wrap`, and only registrations by implementation type go through
+`ActivatorUtilities`; both create their `ObjectFactory` lazily on the first resolution instead of in `AddDecoratR()`.
+The helpers are private and emitted into every registry and composition root, so each assembly is self-contained.
 
 ## Key Design Decisions
 
-- **AOT-first.** No reflection beyond `ActivatorUtilities`, all types are statically known, generated code
-  carries `DynamicallyAccessedMembers` annotations. The integration test project builds with
-  `IsAotCompatible=true`.
+- **AOT-first.** Handlers and decorators are constructed by generated code; reflection (`ActivatorUtilities`) is
+  limited to the fallback for constructors the generator cannot call directly and to registrations by
+  implementation type. All types are statically known, the fallback carries `DynamicallyAccessedMembers`
+  annotations. The integration test project builds with `IsAotCompatible=true`.
 - **Fail at build time.** Everything that used to produce invalid generated code or silently misbehaving
   registrations is now a diagnostic (see below).
 - **Roslyn version pin.** The generator references the Roslyn version of the .NET 10 SDK baseline (5.0.0).

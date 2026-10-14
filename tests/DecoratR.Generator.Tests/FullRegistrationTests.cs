@@ -17,7 +17,7 @@ public class FullRegistrationTests : GeneratorTestBase
         result.Registrations.Should().Contain("public static class DecoratRServiceCollectionExtensions");
         result.Registrations.Should().Contain("typeof(global::TestCommandHandler)");
         result.Registrations.GetPipeline("global::TestCommand", "string").Should().Contain(
-            "descriptor = Wrap<global::DecoratR.IRequestHandler<global::TestCommand, string>, global::LoggingDecorator<global::TestCommand, string>>(descriptor); // Order 1");
+            "descriptor = ApplyLoggingDecorator<global::TestCommand, string>(descriptor); // Order 1");
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public class FullRegistrationTests : GeneratorTestBase
         var registrations = RunGenerator(TestSources.FullPath(TestSources.Decorator("LoggingDecorator", 1))).ShouldCompile().Registrations;
 
         registrations.Should().NotContain("typeof(global::LoggingDecorator");
-        registrations.CountOccurrences("services.Add(").Should().Be(1);
+        registrations.CountLocalRegistrations().Should().Be(1);
     }
 
     [Fact]
@@ -94,13 +94,18 @@ public class FullRegistrationTests : GeneratorTestBase
     }
 
     [Fact]
-    public void RuntimeHelpers_UseCreateFactoryAndSkipKeyedServices()
+    public void RuntimeHelpers_DecorateInOnePass_SkipKeyedServices_AndCreateFallbackFactoriesLazily()
     {
         var registrations = RunGenerator(TestSources.FullPath(TestSources.Decorator("LoggingDecorator", 1))).ShouldCompile().Registrations;
 
-        registrations.Should().Contain("ActivatorUtilities.CreateFactory(");
+        registrations.Should().Contain("Decorate(services, pipelines);").And.Contain("descriptor.IsKeyedService");
+        registrations.Should().Contain("CollectionsMarshal.GetValueRefOrNullRef(pipelines, descriptor.ServiceType);");
+        registrations.Should().Contain("services[i] = pipeline.Apply(descriptor);");
+
+        // Only registrations by implementation type (added by the user) still go through ActivatorUtilities, compiled
+        // on the first resolution instead of in AddDecoratR().
+        registrations.Should().Contain("(factory ??= global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateFactory(descriptor.ImplementationType!, global::System.Type.EmptyTypes))(sp, null)");
         registrations.Should().NotContain("ActivatorUtilities.CreateInstance(");
-        registrations.Should().Contain("descriptor.IsKeyedService");
-        registrations.Should().Contain("services[i] = decorate(descriptor);");
+        registrations.Should().NotContain("Wrap<");
     }
 }

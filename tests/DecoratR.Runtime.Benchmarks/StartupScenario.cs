@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+using DecoratR.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DecoratR.Runtime.Benchmarks;
@@ -24,17 +24,17 @@ public sealed class Right<T>;
 public sealed class Root;
 
 /// <summary>
-/// One handler of the startup scenario: its service and implementation type and the decorator pipeline as the
-/// generated <c>AddDecoratR()</c> emits it for referenced decorators (innermost decorator first).
+/// One handler of the startup scenario: its registry entry exactly as a generated module registry emits it (service
+/// type, implementation type, generated factory) and the decorator pipeline as the generated <c>AddDecoratR()</c> emits
+/// it for referenced decorators (innermost decorator first).
 /// </summary>
-public sealed record StartupEntry(
-    Type ServiceType,
-    [property: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type ImplementationType,
-    Func<ServiceDescriptor, ServiceDescriptor> Pipeline)
+public sealed record StartupEntry(HandlerRegistration Registration, Func<ServiceDescriptor, ServiceDescriptor> Pipeline)
 {
     public static StartupEntry For<TKey>() => new(
-        typeof(IRequestHandler<KeyedRequest<TKey>, int>),
-        typeof(KeyedHandler<TKey>),
+        new HandlerRegistration(
+            typeof(IRequestHandler<KeyedRequest<TKey>, int>),
+            typeof(KeyedHandler<TKey>),
+            static sp => new KeyedHandler<TKey>(sp.GetRequiredService<Repository>())),
         static descriptor =>
         {
             descriptor = DecoratRDecoratorRegistry.ApplyDecoratR_Runtime_Benchmarks_InnerDecorator<KeyedRequest<TKey>, int>(descriptor);
