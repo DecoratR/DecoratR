@@ -141,11 +141,30 @@ service type, the implementation type and the generated factory (`static sp => n
 
 Each pipeline step calls an apply method: the public one of a referenced `DecoratRDecoratorRegistry` or a private
 one emitted into the composition root for local decorators. Apply methods construct the decorator with `new`
-around `CreateInnerFactory(inner)` and keep the lifetime of the wrapped registration; resolving a pipeline therefore
-costs one delegate call and one allocation per layer, without `object[]` arguments or reflection. Only decorators
+around the inner factory and keep the lifetime of the wrapped registration; resolving a pipeline therefore costs one
+delegate call and one allocation per layer, without `object[]` arguments or reflection. Handler factories and apply
+methods create delegates typed with the handler interface (`Func<IServiceProvider, IRequestHandler<TRequest, TResponse>>`);
+an apply method checks once whether the inner factory has that type and then calls it without an interface cast
+(registrations made elsewhere are cast per resolution). This saves about 5 ns per resolution of a three-layer pipeline
+at the price of one delegate type per service type at startup. Only decorators
 without a constructor plan use `Wrap`, and only registrations by implementation type go through
 `ActivatorUtilities`; both create their `ObjectFactory` lazily on the first resolution instead of in `AddDecoratR()`.
 The helpers are private and emitted into every registry and composition root, so each assembly is self-contained.
+
+### Runtime cost
+
+Measured with `tests/DecoratR.Runtime.Benchmarks` and NativeAOT console probes (Apple M4 Pro, .NET 10.0.12; details,
+methodology and the comparison with the previous `ActivatorUtilities`-based code in
+`docs/modular-monolith-analysis.md`, section 4):
+
+| | JIT | NativeAOT |
+|---|---:|---:|
+| Resolve a transient pipeline with three decorators | 57 ns · 120 B (hand-written factory: 48 ns) | 91 ns · 120 B (hand-written: 89 ns) |
+| `AddDecoratR()`, 500 handlers × 3 decorators, warm | 70 µs · 406 KB | – |
+| `AddDecoratR()`, 500 handlers × 3 decorators, first call in a fresh process | 30 ms | 0.17 ms |
+
+The first-call cost under JIT is dominated by compiling one pipeline lambda and the apply method instantiations per
+service type.
 
 ## Key Design Decisions
 

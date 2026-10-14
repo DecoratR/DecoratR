@@ -2,12 +2,14 @@
 
 Stand: 2026-10-14 · Branch `claude/code-analysis-clean-performance-771b9d` · Basis-Commit `a857f9c`
 
-> **Status: Phase 0 umgesetzt.** Die Generator-Benchmarks messen jetzt den Registrierungspfad (GP1) und enthalten
-> ein Modular-Monolith-Szenario; `tests/DecoratR.Runtime.Benchmarks` misst den heute generierten Code (Resolve,
+> **Status: Phase 0 und Phase 1 umgesetzt.** Die Generator-Benchmarks messen jetzt den Registrierungspfad (GP1) und
+> enthalten ein Modular-Monolith-Szenario; `tests/DecoratR.Runtime.Benchmarks` misst den generierten Code (Resolve,
 > `AddDecoratR()`-Startup). Die Probes P1–P6, R2 und R3 sind Regressionstests in
 > `tests/DecoratR.Generator.Tests/ModularMonolithRegressionTests.cs` und
 > `tests/DecoratR.IntegrationTests/ModularMonolithRegressionTests.cs`; sie prüfen das Zielverhalten und sind bis zur
-> jeweiligen Phase mit `Skip` markiert (Skip-Grund nennt Finding und Phase). Phasen 1–4 sind offen.
+> jeweiligen Phase mit `Skip` markiert (Skip-Grund nennt Finding und Phase). Phase 1 (generierter Laufzeitcode: RP1,
+> RP2, RP3, MM1, MM7, GP3) ist umgesetzt, die MM1-/MM7-Tests laufen ohne Skip; Vorher/Nachher-Messung in Abschnitt 4.
+> Phasen 2–4 sind offen.
 
 Dieses Dokument bewertet DecoratR aus Sicht eines **Modular Monolith**: viele Module (je ein Satz Clean-Architecture-
 Projekte), ein Shared Kernel mit Cross-Cutting-Decorators und **eine** Composition Root, die über
@@ -98,6 +100,8 @@ Generator skaliert auf 10 Module × 100 Handler problemlos (Host kalt 4,6 ms). D
   1:1 abbilden kann (mehrere öffentliche Konstruktoren, optionale Parameter, `[ServiceKey]`).
 - **Wirkung:** 500 Handler: 148–163 ms → **~5 ms** Kaltstart (JIT), 93 ms → **3,4 ms** (AOT).
 - **Priorität:** Hoch · **Aufwand:** L (zusammen mit RP2/MM1)
+- **Status:** umgesetzt (Phase 1). Gemessen (Abschnitt 4.2): warm 500 Handler 125 ms → 70 µs, 2 000 Handler
+  522 ms → 0,40 ms; kalt 197 ms → 30 ms (JIT, Prognose ~5 ms nicht erreicht, siehe 4.2) und 12,1 ms → 0,17 ms (AOT).
 
 #### RP2 · Pro Auflösung ein `object[]` je Decorator-Schicht; unter AOT Reflection-Invoke
 - **Beleg:** `RuntimeHelpersEmitter.cs:81` – `provider => decoratorFactory(provider, new object?[] { innerFactory(provider) })`.
@@ -116,6 +120,8 @@ Generator skaliert auf 10 Module × 100 Handler problemlos (Host kalt 4,6 ms). D
   AOT-first) sinkt die Zeit um 41 %. Zusätzlich entfallen
   die `DynamicallyAccessedMembers`-Anforderungen an Decorator-Typen.
 - **Priorität:** Hoch · **Aufwand:** in RP1 enthalten
+- **Status:** umgesetzt (Phase 1), mit typisierten Factory-Delegates (Abschnitt 4.4). Gemessen (Abschnitt 4.1):
+  JIT 62,5 → 57,2 ns, NativeAOT 152 → 91 ns (Untergrenze ~89 ns), jeweils 216 → 120 B.
 
 #### RP3 · `Decorate` scannt die komplette `IServiceCollection` pro Service-Typ (O(N × S))
 - **Beleg:** `RuntimeHelpersEmitter.cs:27-38` (lineare Schleife), `RegistrationsEmitter.cs:145` (ein `Decorate`-Aufruf
@@ -126,6 +132,8 @@ Generator skaliert auf 10 Module × 100 Handler problemlos (Host kalt 4,6 ms). D
   (Semantik bleibt: jede nicht-keyed Registrierung des Service-Typs wird dekoriert, auch vom Nutzer vorab
   registrierte). Fehlende Treffer werden am Ende gesammelt gemeldet.
 - **Priorität:** Mittel (wird relevant, sobald RP1 umgesetzt ist) · **Aufwand:** S
+- **Status:** umgesetzt (Phase 1): ein Durchgang mit `Dictionary<Type, Pipeline>`; Treffer werden im Eintrag
+  markiert (`CollectionsMarshal.GetValueRefOrNullRef`), fehlende Service-Typen nur im Fehlerfall gesammelt.
 
 #### RP4 · Eine globale Lifetime für alle Module
 - **Beleg:** `DecoratROptions.cs:14`, `RegistrationsEmitter.cs:86-93` (`options.Lifetime` für alle Registries).
@@ -145,7 +153,9 @@ Generator skaliert auf 10 Module × 100 Handler problemlos (Host kalt 4,6 ms). D
 - **Lösung (optional):** Pipelines mit identischer Decorator-Kette teilen sich eine generische Helper-Methode
   (`Chain3<TRequest, TResponse>(descriptor)` mit vereinigten `where`-Klauseln); pro Service-Typ bleibt ein
   Dictionary-Eintrag. In einem Modular Monolith gibt es typischerweise wenige Ketten (pro Modul „Command“ und „Query“).
-- **Priorität:** Niedrig · **Aufwand:** M
+- **Priorität:** Niedrig → **Mittel** nach Phase 1: Der JIT-Kaltstart von `AddDecoratR()` wird jetzt vom JIT der
+  einen Pipeline-Lambda pro Service-Typ und den Instanziierungen der Apply-Methoden dominiert (~60 µs pro
+  Service-Typ, Abschnitt 4.2) · **Aufwand:** M
 
 ### 3.2 Modulgrenzen und Korrektheit
 
@@ -164,6 +174,11 @@ Generator skaliert auf 10 Module × 100 Handler problemlos (Host kalt 4,6 ms). D
   solche nie aufgelösten keyed Registrierungen prüft (fehlende Abhängigkeit und Captive Dependency). Für Decorators
   analog als Folgeschritt.
 - **Priorität:** Hoch · **Aufwand:** S (mit RP1)
+- **Status:** umgesetzt (Phase 1, Entscheidung 8.1): Schlüssel `DecoratRServiceKeys.Validation`
+  (`"DecoratR.Validation"`), auch für Fallback-Handler und Handler aus älteren Registries.
+  `MM1_ValidateOnBuild_ReportsMissingDependencyOfDecoratedHandler` und
+  `PipelineTests.ValidateScopes_ReportsCaptiveDependencyOfDecoratedHandler` sind aktiv. Decorator-Abhängigkeiten werden
+  noch nicht validiert (Folgeschritt).
 
 #### MM2 · Decorators eines Moduls dekorieren Handler aller Module
 - **Beleg:** Probe P5. `src/DecoratR.Generator/Emit/DecorationPlanner.cs:65-81` matcht jeden Decorator gegen jeden
@@ -229,6 +244,9 @@ Generator skaliert auf 10 Module × 100 Handler problemlos (Host kalt 4,6 ms). D
 - **Lösung:** Marker-Registrierung (`services.Any(d => d.ServiceType == typeof(DecoratRMarker))` → früh zurück).
   Mit RP3 (Dictionary) ohnehin billiger.
 - **Priorität:** Niedrig · **Aufwand:** S
+- **Status:** umgesetzt (Phase 1): privater `Marker`-Typ pro Composition Root (zwei verschiedene Composition Roots
+  schalten sich nicht gegenseitig ab); spätere Aufrufe kehren sofort zurück und rufen `configure` nicht auf.
+  `MM7_AddDecoratRTwice_RegistersAndDecoratesOnce` ist aktiv.
 
 #### MM8 · `Order` ist ein globaler Namensraum über alle Module
 - **Beleg:** `src/DecoratR.Abstractions/DecoratorAttribute.cs:21`; im Beispiel Shared Kernel 0/1/10, Catalog 5. Jedes
@@ -268,6 +286,9 @@ Generator skaliert auf 10 Module × 100 Handler problemlos (Host kalt 4,6 ms). D
 | `HandlerRegistration` wird pro Modul als eigener Record generiert | `HandlerRegistryEmitter.cs:64-72` | Typ in `DecoratR.Abstractions` (`DecoratR.Metadata`), wie bereits `VoidRequestHandler<T>`; Voraussetzung für das Factory-Feld aus RP1 |
 | `DecorationPlanner.AddDistinct` ist O(S²), `ConstraintMatcher` allokiert pro Vergleich gestrippte Strings | `DecorationPlanner.cs:101-108`, `ConstraintMatcher.cs:41-43` | `HashSet` mit Comparer bzw. vorberechnete NRT-freie Namen (fällt mit MM6 ab); heute bei 1 000 Handlern 4,6 ms, daher nur mitnehmen |
 
+**Status:** Zeilen 1 und 2 umgesetzt (Phase 1): `Handlers` ist `ReadOnlySpan<DecoratR.Metadata.HandlerRegistration>`
+über einem privaten Array, der Typ liegt in `DecoratR.Abstractions`. Zeile 3 bleibt offen (mit MM6).
+
 ### 3.4 Clean Code im Beispiel `examples/modular-monolith`
 
 Das Beispiel ist die Blaupause, die Nutzer kopieren. Abweichungen von „so würde man es produktiv bauen“ sind daher
@@ -289,77 +310,118 @@ relevanter als in normalem Beispielcode.
 
 ## 4. Messwerte
 
-Reproduzierbar mit den Benchmark-Projekten im Repo (die Werte unten stammen aus der Analyse im Scratchpad; die
-Varianten A–D existieren dort nur als Prototyp und kommen mit Phase 1 in den generierten Code):
+Reproduzierbar mit den Benchmark-Projekten im Repo:
 
 ```bash
-dotnet run -c Release --project tests/DecoratR.Runtime.Benchmarks -- --filter '*Resolve*'
+dotnet run -c Release --project tests/DecoratR.Runtime.Benchmarks -- --filter '*'
 ```
 
 ```bash
-dotnet run -c Release --project tests/DecoratR.Runtime.Benchmarks -- --filter '*Startup*' --job short
+dotnet run -c Release --project tests/DecoratR.Runtime.Benchmarks -- --filter '*Resolve*' --launchCount 3
 ```
 
 ```bash
 dotnet run -c Release --project tests/DecoratR.Generator.Benchmarks -- --filter '*ModularMonolith*' --job short
 ```
 
-Umgebung: Apple Silicon (arm64), macOS, .NET SDK 10.0.401 / Runtime 10.0.12, `Microsoft.Extensions.DependencyInjection`
-10.0.12, BenchmarkDotNet 0.15.8. Pipeline-Aufbau: ein Handler mit einer Singleton-Abhängigkeit, drei Decorators
-mit je einer Singleton-Abhängigkeit, Lifetime `Transient`, Auflösung aus einem Scope.
+Umgebung: Apple M4 Pro (arm64), macOS 27.0.1, .NET SDK 10.0.401 / Runtime 10.0.12,
+`Microsoft.Extensions.DependencyInjection` 10.0.12, BenchmarkDotNet 0.15.8. Pipeline-Aufbau: ein Handler mit einer
+Singleton-Abhängigkeit, drei Decorators mit je einer Singleton-Abhängigkeit, Lifetime `Transient`, Auflösung aus einem
+Scope.
+
+**Vorher** = Stand Phase 0 (Commit `62dc900`), **Nachher** = Phase 1 (Commit `4d7027f`), beide auf derselben Maschine
+am 2026-10-14 gemessen (Vorher in einem separaten Worktree). Zwischen zwei BenchmarkDotNet-Prozessen schwankt der
+Resolve-Wert um ±3–4 ns; Vergleiche im Nanosekundenbereich stützen sich deshalb auf `--launchCount 3`. Die
+NativeAOT- und Kaltstart-Werte stammen aus zwei Scratchpad-Konsolenprogrammen gegen die jeweiligen `src/`-Stände:
+dieselben Typen wie `ResolveBenchmarks` (5 Mio. Auflösungen, 3. Runde, 3 Prozesse) bzw. ein echtes Modul mit 500
+`internal` Handlern, ein Shared Kernel mit 3 Decorators und ein Host mit `WebApplication.CreateSlimBuilder()`
+(erster `AddDecoratR()`-Aufruf im frischen Prozess, Median aus 5 Läufen).
 
 ### 4.1 Auflösung einer Pipeline (Hot Path)
 
-| Variante | JIT (BDN) | Alloc | NativeAOT | Alloc |
+| Variante | JIT (BDN, 3 Prozesse) | Alloc | NativeAOT | Alloc |
 |---|---:|---:|---:|---:|
-| MS DI, nur Handler, ohne Decorators (Referenz) | 11,4 ns | 24 B | 48,7 ns | 56 B |
-| **DecoratR heute** (`Wrap` + `ActivatorUtilities`) | **64,7 ns** | **216 B** | **163,0 ns** | **216 B** |
-| A: Decorators per `new`, Handler über `ActivatorUtilities` | 66,5 ns | 120 B | 106,1 ns | 120 B |
-| B: Decorators per `new`, Handler als keyed MS-DI-Registrierung | 68,6 ns | 120 B | 129,8 ns | 152 B |
-| C: Decorators per `new`, Handler als konkrete MS-DI-Registrierung | 66,8 ns | 120 B | 131,0 ns | 152 B |
-| **D: Decorators per `new`, Handler über generierte Factory** | **58,4 ns** | **120 B** | **96,3 ns** | **120 B** |
-| Untergrenze: eine handgeschriebene Factory für alles | 48,9 ns | 120 B | 89,8 ns | 120 B |
+| MS DI, nur Handler, ohne Decorators (Referenz) | 11,1 ns | 24 B | 46 ns | 56 B |
+| **Vorher** (`Wrap` + `ActivatorUtilities`, `object[]` pro Schicht) | **62,5 ns** | **216 B** | **152 ns** | **216 B** |
+| **Nachher** (Direktkonstruktion, generierte Handler-Factory, typisierte Delegates) | **57,2 ns** | **120 B** | **91 ns** | **120 B** |
+| Untergrenze: eine handgeschriebene Factory für alles | 48,2 ns | 120 B | 89 ns | 120 B |
 
-Lesart: Die Zeit wird im JIT von den `GetRequiredService`-Aufrufen für die Abhängigkeiten dominiert, daher liegen
-heute und A–C dort innerhalb des Messrauschens (±2 ns zwischen Läufen); nur D spart auch im JIT Zeit (−10 %),
-alle neuen Varianten sparen 96 B. Unter NativeAOT nutzt `ActivatorUtilities` Reflection-Invoke
-und MS DI seinen Reflection-Resolver – dort ist die generierte Variante D klar vorne. B/C sind wegen der
-MS-DI-Auflösung des Handlers unter AOT langsamer als A; deshalb trennt das Zieldesign „Auflösung“ (Factory, D) von
-„Validierung“ (keyed Registrierung, MM1).
+Einzellauf `--filter '*'` (Default-Job, ein Prozess): vorher 60,4 ns · 216 B, nachher 56,4 ns · 120 B
+(Untergrenze 46,9 bzw. 49,7 ns).
+
+Lesart: Die Allokation sinkt um 44 % (die drei `object[]` entfallen, 120 B sind genau Handler + drei Decorators).
+Der Abstand zur Untergrenze schrumpft im JIT von ~14 ns auf ~9 ns (−8 % absolut) und verschwindet unter NativeAOT
+fast vollständig (63 → ~2 ns; −40 % absolut), weil dort weder `ActivatorUtilities` (Reflection-Invoke) noch Casts
+pro Schicht anfallen. Die verbleibenden ~9 ns im JIT sind die drei zusätzlichen Delegate-Aufrufe und die Typ-Lookups
+in geteiltem generischem Code (`Apply…<TRequest, TResponse>`). Der Analyse-Prototyp D (58,4 ns / 96,3 ns) ist damit
+erreicht bzw. unterboten. Die Varianten A–C aus der Analyse sind entfallen; Abschnitt 4.4 vergleicht die
+umgesetzten Varianten.
 
 ### 4.2 `AddDecoratR()`-Startup (Handler × 3 Decorators, ASP.NET-Basis mit 114 Registrierungen)
 
-Warm (BenchmarkDotNet, ShortRun, JIT):
+Warm (BenchmarkDotNet, Default-Job, JIT):
 
-| Variante | 100 Handler | 500 Handler | 2 000 Handler |
+| | 100 Handler | 500 Handler | 2 000 Handler |
 |---|---:|---:|---:|
-| **heute:** Scan pro Service-Typ + `CreateFactory` pro Schicht | 24,6 ms · 3,1 MB | 125,0 ms · 15,6 MB | ~710 ms · 62,3 MB |
-| Single Pass + `CreateFactory` pro Schicht | 24,3 ms | 124,4 ms | ~530 ms |
-| Scan pro Service-Typ, Decorators per `new` (Handler weiter `CreateFactory`) | 5,2 ms · 0,8 MB | 27,7 ms · 3,9 MB | 120,3 ms · 15,6 MB |
-| keyed Handler + `new`, **Scan** pro Service-Typ | 0,042 ms | 0,77 ms | 11,5 ms |
-| keyed Handler + `new`, **Single Pass** | 0,010 ms | 0,062 ms | 0,36 ms · 1,6 MB |
-| vorab dekoriert registriert, kein Scan | 0,004 ms | 0,022 ms | 0,13 ms · 0,8 MB |
+| **Vorher:** Scan pro Service-Typ + `CreateFactory` pro Schicht | 24,9 ms · 3,1 MB | 125,3 ms · 15,6 MB | 521,6 ms · 62,4 MB |
+| **Nachher:** generierte Factories + Validierungsregistrierung + Single Pass | **13,1 µs · 83 KB** | **70,0 µs · 406 KB** | **0,40 ms · 1,6 MB** |
+| Referenz vorher: Host + Handler per Typ registriert, ohne Dekoration | 1,1 µs | 4,2 µs | 15,9 µs |
+| Referenz nachher: Host + Handler-Factory + Validierungsregistrierung, ohne Dekoration | 2,0 µs | 8,1 µs | 31,3 µs |
 
-Kalt (erster Aufruf im frischen Prozess, 500 Handler, drei Läufe):
+Kalt (erster Aufruf im frischen Prozess, echtes Modul mit 500 Handlern × 3 Decorators, Median aus 5 Läufen):
 
-| | heute | Zieldesign (Direktkonstruktion + Single Pass) |
+| | Vorher | Nachher |
 |---|---:|---:|
-| JIT | 148–163 ms | 5,2–5,4 ms |
-| NativeAOT | 93,5 ms | 3,4 ms |
+| JIT: `AddDecoratR()` | 197 ms | **30,3 ms** |
+| JIT: erste Auflösung einer Pipeline | 0,70 ms | 0,90 ms |
+| NativeAOT: `AddDecoratR()` | 12,1 ms | **0,17 ms** |
+| NativeAOT: erste Auflösung einer Pipeline | 0,012 ms | 0,009 ms |
+
+Lesart: Warm ist `AddDecoratR()` um Faktor 1 300–1 900 schneller und allokiert 97 % weniger; die Referenzzeile zeigt,
+dass die zusätzlichen Validierungsregistrierungen die Registrierung selbst etwa verdoppeln (bei 2 000 Handlern
++15 µs). Kalt unter NativeAOT bleibt praktisch nichts übrig. Im JIT-Kaltstart ist die Prognose der Analyse (~5 ms) nicht
+erreicht: Der generierte Code hat eine Pipeline-Lambda pro Service-Typ und pro Service-Typ eigene Instanziierungen
+der Apply-Methoden, deren Tier-0-JIT bzw. Typ-Laden jetzt dominiert (~60 µs pro Service-Typ). Das Startup-Szenario der
+Benchmarks teilt dagegen eine generische Lambda für alle Handler (`StartupEntry.For<TKey>`), was die Prognose
+vermutlich zu optimistisch gemacht hat. Nächster Hebel dafür ist RP5 (geteilte Pipeline-Helper pro
+Decorator-Kette). Die erste Auflösung wird im JIT um ~0,2 ms teurer, weil die Factory-Lambdas erst dort gejittet
+werden statt beim Start kompiliert.
 
 ### 4.3 Generator (10 Module × 100 Handler, Shared Kernel mit 3 Decorators, 10 Modul-Decorators)
 
-| Schritt | Zeit | Alloc |
+| Schritt | Vorher | Nachher (mit Konstruktor-Analyse) |
 |---|---:|---:|
-| Composition Root, kalter Lauf | 4,6 ms | 5,6 MB |
-| Composition Root, Tastendruck (unabhängige Änderung) | 0,64 ms | 2,2 MB |
-| Modul (100 Handler), kalter Lauf | 3,1 ms | 1,3 MB |
-| Modul, Tastendruck (Worst Case: alle Handler in einer Datei) | 2,6 ms | 0,4 MB |
-| Generierter Host-Code | 660 KB, 6 605 Zeilen | – |
+| Composition Root, kalter Lauf | 5,1 ms · 5,8 MB | 5,0 ms · 5,8 MB |
+| Composition Root, Tastendruck (unabhängige Änderung) | 0,58 ms · 2,2 MB | 0,55 ms · 2,2 MB |
+| Modul (100 Handler), kalter Lauf | 3,3 ms · 1,6 MB | 2,7 ms · 1,4 MB |
+| Modul, Tastendruck (Worst Case: alle Handler in einer Datei) | 2,4 ms · 0,47 MB | 2,2 ms · 0,44 MB |
+| Generierter Host-Code (Analyse, vorher) | 660 KB, 6 605 Zeilen | nicht neu gemessen |
+
+ShortRun mit wenigen Iterationen: Unterschiede unter ~15 % liegen im Rauschen. Die Konstruktor-Analyse
+(`ConstructorAnalyzer`) verursacht keine messbare Regression.
+
+### 4.4 Variantenvergleich: Cast pro Schicht vs. typisierte Delegates
+
+| | V0: Cast pro Schicht | V1: typisiert, generische Helfer | **V2: typisiert, ohne Helfer (umgesetzt)** |
+|---|---:|---:|---:|
+| JIT Resolve (BDN, 3 Prozesse) | 62,2 ns | 57,2 ns | **57,2 ns** |
+| NativeAOT Resolve | ~96 ns | ~91 ns | **~91 ns** |
+| JIT kalt `AddDecoratR()` (500 Handler) | 28,6 ms | 30,8 ms | **30,3 ms** |
+| NativeAOT kalt `AddDecoratR()` (500 Handler) | 0,11 ms | 0,17 ms | **0,17 ms** |
+| Warm `AddDecoratR()` (500 / 2 000 Handler) | 60 µs / 0,33 ms | – | 70 µs / 0,40 ms |
+
+V0 ruft `(IRequestHandler<TRequest, TResponse>)innerFactory(sp)` in jeder Schicht auf, V1/V2 rufen typisierte
+Delegates ohne Cast auf. V1 nutzt dafür generische Helfer `CreateInnerFactory<T>`/`Describe<T>`, V2 prüft den
+Delegate-Typ direkt in der Apply-Methode. Entscheidung für V2 (performance-first, AOT-first): −5 ns pro Auflösung in
+JIT und NativeAOT gegen ~3 µs pro Service-Typ im JIT-Kaltstart; unter NativeAOT ist der Aufpreis vernachlässigbar.
 
 ---
 
 ## 5. Zieldesign für Registrierung und Auflösung
+
+> **Umgesetzt in Phase 1.** Die Codebeispiele zeigen den generierten Code (gekürzt: ohne `global::`-Präfixe, die
+> Generator-Ausgabe ruft `ServiceProviderServiceExtensions.GetRequiredService<T>(sp)` voll qualifiziert auf). Abweichungen
+> vom ursprünglichen Entwurf sind unten unter „Umsetzungsentscheidungen“ begründet.
 
 Ziel: keine Laufzeit-Kompilierung, keine `object[]` pro Resolve, `ValidateOnBuild` greift, Semantik für
 vom Nutzer vorab registrierte Service-Typen bleibt erhalten. Das Metadaten-Format bleibt abwärtskompatibel, weil die
@@ -368,26 +430,32 @@ Composition Root am referenzierten Registry-Typ erkennt, ob er Factories liefert
 **Modul-Registry (generiert im Modul, darf `internal` Typen benutzen):**
 
 ```csharp
-public static ReadOnlySpan<HandlerRegistration> Handlers => s_handlers;
-private static readonly HandlerRegistration[] s_handlers =
+public static ReadOnlySpan<HandlerRegistration> Handlers => Registrations;
+
+private static readonly HandlerRegistration[] Registrations =
 [
-    new(typeof(IRequestHandler<CreateProductCommand, ProductDto>),
-        typeof(CreateProductCommandHandler),                       // nur noch für die Validierungsregistrierung
-        static sp => new CreateProductCommandHandler(sp.GetRequiredService<IProductRepository>())),
+    new(typeof(IRequestHandler<CreateProductCommand, ProductDto>), typeof(CreateProductCommandHandler),
+        (Func<IServiceProvider, IRequestHandler<CreateProductCommand, ProductDto>>)(static sp => new CreateProductCommandHandler(
+            GetRequiredService<IProductRepository>(sp)))),
+    new(typeof(IRequestHandler<GetReport, string>), typeof(GetReportHandler)), // registered by implementation type: …
 ];
 ```
 
-**Decorator-Registry (generiert in der Assembly des Decorators):**
+**Decorator-Registry (generiert in der Assembly des Decorators; lokale Decorators bekommen dieselbe Methode privat in
+der Composition Root):**
 
 ```csharp
 public static ServiceDescriptor ApplyLoggingDecorator<TRequest, TResponse>(ServiceDescriptor inner)
     where TRequest : IRequest
 {
-    var innerFactory = DescriptorFactory.Create(inner);            // Factory/Instanz/Typ, wie heute CreateInnerFactory
-    return ServiceDescriptor.Describe(inner.ServiceType,
-        sp => new LoggingDecorator<TRequest, TResponse>(
-            (IRequestHandler<TRequest, TResponse>)innerFactory(sp),
-            sp.GetRequiredService<ILogger<LoggingDecorator<TRequest, TResponse>>>()),
+    var factory = CreateInnerFactory(inner);                       // Factory/Instanz/Typ (Typ: ActivatorUtilities, lazy)
+    var innerFactory = factory as Func<IServiceProvider, IRequestHandler<TRequest, TResponse>>
+        ?? (sp => (IRequestHandler<TRequest, TResponse>)factory(sp)); // nur für fremde, untypisierte Registrierungen
+    return ServiceDescriptor.Describe(
+        inner.ServiceType,
+        (Func<IServiceProvider, IRequestHandler<TRequest, TResponse>>)(sp => new LoggingDecorator<TRequest, TResponse>(
+            innerFactory(sp),
+            GetRequiredService<ILogger<LoggingDecorator<TRequest, TResponse>>>(sp))),
         inner.Lifetime);
 }
 ```
@@ -395,33 +463,60 @@ public static ServiceDescriptor ApplyLoggingDecorator<TRequest, TResponse>(Servi
 **Composition Root:**
 
 ```csharp
-foreach (ref readonly var handler in Catalog.Application.DecoratRHandlerRegistry.Handlers)
-{
-    services.Add(ServiceDescriptor.Describe(handler.ServiceType, handler.Factory, lifetime));
-    // Wird nie aufgelöst; ValidateOnBuild/ValidateScopes prüfen darüber die Abhängigkeiten des Handlers (MM1).
-    services.Add(new ServiceDescriptor(handler.ImplementationType, DecoratRKeys.Validation, handler.ImplementationType, lifetime));
-}
+for (var i = 0; i < services.Count; i++)
+    if (services[i].ServiceType == typeof(Marker)) return services;             // MM7: idempotent
+services.Add(new ServiceDescriptor(typeof(Marker), Marker.Instance));
+
+AddHandlers(services, Catalog.Application.DecoratRHandlerRegistry.Handlers, lifetime);
+// AddHandlers: pro Eintrag Factory-Registrierung (ohne Factory: per Implementierungstyp) und
+// new ServiceDescriptor(handler.ImplementationType, DecoratRServiceKeys.Validation, handler.ImplementationType, lifetime)
+// – wird nie aufgelöst; ValidateOnBuild/ValidateScopes prüfen darüber die Abhängigkeiten des Handlers (MM1).
 
 // Ein Durchgang statt eines Scans pro Service-Typ (RP3).
-Decorate(services, new Dictionary<Type, Func<ServiceDescriptor, ServiceDescriptor>>(capacity: 6)
+var pipelines = new Dictionary<Type, Pipeline>(6);
+pipelines.Add(typeof(IRequestHandler<CreateProductCommand, ProductDto>), new(static descriptor =>
 {
-    [typeof(IRequestHandler<CreateProductCommand, ProductDto>)] = static d => Pipeline_ValidationAuditLogging<CreateProductCommand, ProductDto>(d),
+    descriptor = …DecoratRDecoratorRegistry.ApplyValidationDecorator<CreateProductCommand, ProductDto>(descriptor); // Order 10
     …
-});
+    return descriptor;
+}));
+Decorate(services, pipelines);
 ```
 
 **Regeln für die Direktkonstruktion (Handler und Decorators):**
-- genau ein öffentlicher Konstruktor (oder einer mit `[ActivatorUtilitiesConstructor]`), sonst Fallback auf den
-  heutigen `ActivatorUtilities`-Pfad (lazy beim ersten Resolve statt im Startup);
-- Parameter vom Typ des Handler-Interfaces → innerer Handler (Decorators);
-- `IServiceProvider` → `sp`; `[FromKeyedServices(key)]` → `GetRequiredKeyedService<T>(key)`;
-- optionale Parameter, `[ServiceKey]`, `ref`/`out`/`params` → Fallback;
-- alles andere → `sp.GetRequiredService<T>()` (deckt `IEnumerable<T>` und `ILogger<T>` ab).
+- genau ein öffentlicher Konstruktor oder genau einer mit `[ActivatorUtilitiesConstructor]`, sonst Fallback auf den
+  `ActivatorUtilities`-Pfad (lazy beim ersten Resolve statt im Startup);
+- Parameter vom Typ des Handler-Interfaces → innerer Handler (Decorators, genau ein solcher Parameter);
+- `IServiceProvider` → `sp`; `[FromKeyedServices(key)]` mit konstantem Schlüssel (String, Ganzzahl, `bool`, `char`,
+  Enum, `typeof`) → `GetRequiredKeyedService<T>(sp, key)`;
+- optionale Parameter, `params`, `ref`/`in`/`out`, `[ServiceKey]`, `[FromKeyedServices]` ohne expliziten Schlüssel
+  (.NET-10-Lookup-Modi), nicht gesetzte `required`-Member → Fallback (still, Entscheidung 8.2);
+- alles andere → `GetRequiredService<T>(sp)` (deckt `IEnumerable<T>` und `ILogger<T>` ab).
 
-Damit entfallen in Registries, die nur Direktkonstruktion nutzen, `Wrap`, `ActivatorUtilities` und die
-`DynamicallyAccessedMembers`-Anforderungen an Decorator-Typen.
+Damit entfallen in Registries, die nur Direktkonstruktion nutzen, `Wrap` und die `DynamicallyAccessedMembers`-
+Anforderungen an Decorator-Typen. `ActivatorUtilities` bleibt nur in `CreateInnerFactory` für Registrierungen per
+Implementierungstyp (Fallback-Handler, vom Nutzer registrierte Handler).
 
----
+**Umsetzungsentscheidungen (gemessen bzw. begründet):**
+- **Typisierte Factory-Delegates statt Cast pro Schicht.** Handler-Factories sind `Func<IServiceProvider, TService>`
+  (per Varianz als `Func<IServiceProvider, object>` gespeichert), Apply-Methoden erzeugen ebenfalls typisierte
+  Delegates. Jede Apply-Methode prüft einmal beim Start (`as Func<IServiceProvider, IRequestHandler<…>>`), ob die innere
+  Factory schon typisiert ist, und ruft sie dann ohne Interface-Cast auf; fremde, untypisierte Registrierungen werden
+  pro Auflösung gecastet. Drei Varianten gemessen (Abschnitt 4.4): Cast pro Schicht (V0), typisiert mit generischen
+  Helfern `CreateInnerFactory<T>`/`Describe<T>` (V1), typisiert ohne Helfer (V2, umgesetzt). V2 spart pro Auflösung
+  ~5 ns (JIT und NativeAOT, damit unter AOT auf Höhe der handgeschriebenen Untergrenze) und kostet im JIT-Kaltstart
+  ~3 µs pro Service-Typ für die zusätzlichen Delegate-Typen.
+- **`HandlerRegistration` ist ein `readonly struct`** (ein Array statt eines Objekts pro Eintrag); `Factory` ist
+  `null`, wenn der Handler per Implementierungstyp registriert wird. So bleibt für Fallback-Handler ohne Decorator die
+  Konstruktorwahl von MS DI erhalten (wie bisher), statt sie durch `ActivatorUtilities` zu ersetzen.
+- **Validierungsschlüssel ist der String `"DecoratR.Validation"`** (`DecoratRServiceKeys.Validation`), kein Objekt:
+  ein `[ServiceKey] string`-Parameter bekäme sonst einen Schlüssel falschen Typs und `ValidateOnBuild` würde scheitern.
+- **`Decorate` merkt sich Treffer im Dictionary-Eintrag** (`struct Pipeline` + `CollectionsMarshal.GetValueRefOrNullRef`),
+  ohne zusätzliches `HashSet`; fehlende Service-Typen werden nur im Fehlerfall gesammelt.
+- **Idempotenz-Marker ist ein privater Typ pro Composition Root**, damit zwei verschiedene Composition Roots (MM5)
+  sich nicht gegenseitig abschalten.
+- **Alte Registries** (eigener `HandlerRegistration`-Record, Array-Property) erkennt `ReferencedAssemblyScanner` am
+  Property-Typ; ihre Handler werden per Implementierungstyp plus Validierungsregistrierung registriert.
 
 ## 6. Neue Diagnostics
 
@@ -448,12 +543,12 @@ Jede Phase ist einzeln mergebar; Phase 0 liefert die Baseline, gegen die Phase 1
 ### Phase 1 – Generierter Laufzeitcode (größter Hebel)
 | Schritt | Findings |
 |---|---|
-| 1.1 `HandlerRegistration` nach `DecoratR.Abstractions` (`DecoratR.Metadata`), Feld `Factory`; Registry-Property als `ReadOnlySpan` | RP1, GP3 |
-| 1.2 Generierte Handler-Factories in Modul-Registries und für lokale Handler; Fallback-Regeln wie in Abschnitt 5 | RP1, RP2 |
-| 1.3 Apply-Methoden mit Direktkonstruktion; `Wrap` nur noch als Fallback | RP1, RP2 |
-| 1.4 Validierungsregistrierung (keyed) pro Handler; `PipelineTests` um Fehlerfall „fehlende Abhängigkeit“ erweitern | MM1 |
-| 1.5 Single-Pass-`Decorate` mit Dictionary; Idempotenz-Marker (die Kopie in `StartupBenchmarks` mitziehen) | RP3, MM7 |
-| 1.6 Benchmarks aus Phase 0 erneut laufen lassen, Tabelle in `architecture.md` | – |
+| ✅ 1.1 `HandlerRegistration` nach `DecoratR.Abstractions` (`DecoratR.Metadata`), Feld `Factory`; Registry-Property als `ReadOnlySpan` | RP1, GP3 |
+| ✅ 1.2 Generierte Handler-Factories in Modul-Registries und für lokale Handler; Fallback-Regeln wie in Abschnitt 5 | RP1, RP2 |
+| ✅ 1.3 Apply-Methoden mit Direktkonstruktion; `Wrap` nur noch als Fallback | RP1, RP2 |
+| ✅ 1.4 Validierungsregistrierung (keyed) pro Handler; `PipelineTests` um Captive Dependency, Fallback und keyed Abhängigkeiten erweitert (fehlende Abhängigkeit: MM1-Regressionstest) | MM1 |
+| ✅ 1.5 Single-Pass-`Decorate` mit Dictionary; Idempotenz-Marker (die Kopie in `StartupBenchmarks` mitziehen) | RP3, MM7 |
+| ✅ 1.6 Benchmarks aus Phase 0 erneut laufen lassen, Tabelle in Abschnitt 4 und `architecture.md` | – |
 
 ### Phase 2 – Modulgrenzen
 | Schritt | Findings |
@@ -483,11 +578,15 @@ Jede Phase ist einzeln mergebar; Phase 0 liefert die Baseline, gegen die Phase 1
 
 ## 8. Offene Entscheidungen
 
-1. **Validierung über keyed Zusatzregistrierung (MM1):** akzeptabel, dass jede Handler-Implementierung zusätzlich
+1. ~~**Validierung über keyed Zusatzregistrierung (MM1):** akzeptabel, dass jede Handler-Implementierung zusätzlich
    unter einem DecoratR-Schlüssel im Container steht? Alternative: generierte Prüfmethode
-   (`IServiceProviderIsService`) als Opt-in – mehr Code, aber keine zusätzlichen Descriptoren.
-2. **Fallback-Strategie der Direktkonstruktion:** Fallback still (heutiges Verhalten, nur langsamer) oder mit
-   Info-Diagnostic, damit Nutzer den schnellen Pfad gezielt erreichen?
+   (`IServiceProviderIsService`) als Opt-in – mehr Code, aber keine zusätzlichen Descriptoren.~~
+   **Entschieden (2026-10-14): keyed Registrierung** pro Handler unter `DecoratRServiceKeys.Validation`
+   (`"DecoratR.Validation"`), immer aktiv.
+2. ~~**Fallback-Strategie der Direktkonstruktion:** Fallback still (heutiges Verhalten, nur langsamer) oder mit
+   Info-Diagnostic, damit Nutzer den schnellen Pfad gezielt erreichen?~~ **Entschieden (2026-10-14): still.** Der
+   generierte Handler-Registry-Eintrag trägt den Kommentar `registered by implementation type`; der Guide listet die
+   Regeln (Abschnitt „Constructor rules“).
 3. **API für Decorator-Scope (MM2):** `Scope` am `[Decorator]` oder Default pro Modul
    (`[assembly: GenerateDecoratRMetadata(DecoratorScope = …)]`)? Default `Global` (kompatibel) oder `Assembly`
    (sicherer, breaking)?
