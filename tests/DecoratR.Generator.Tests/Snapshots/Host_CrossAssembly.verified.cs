@@ -47,7 +47,7 @@ public static class DecoratRServiceCollectionExtensions
         // Handlers declared in this assembly, each with a validation registration for ValidateOnBuild
         services.Add(global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             typeof(global::DecoratR.IRequestHandler<global::Sample.Host.Ping, string>),
-            static sp => new global::Sample.Host.PingHandler(),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<global::Sample.Host.Ping, string>>)(static sp => new global::Sample.Host.PingHandler()),
             lifetime));
         services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(typeof(global::Sample.Host.PingHandler), global::DecoratR.Metadata.DecoratRServiceKeys.Validation, typeof(global::Sample.Host.PingHandler), lifetime));
 
@@ -102,12 +102,13 @@ public static class DecoratRServiceCollectionExtensions
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
         where TRequest : global::DecoratR.IRequest
     {
-        var innerFactory = CreateInnerFactory(inner);
+        var factory = CreateInnerFactory(inner);
+        var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IRequestHandler<TRequest, TResponse>)factory(sp));
         return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             inner.ServiceType,
-            sp => new global::Sample.Host.TimingDecorator<TRequest, TResponse>(
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>)(sp => new global::Sample.Host.TimingDecorator<TRequest, TResponse>(
                 sp,
-                (global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp)),
+                innerFactory(sp))),
             inner.Lifetime);
     }
 

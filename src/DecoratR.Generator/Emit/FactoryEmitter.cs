@@ -13,12 +13,16 @@ internal static class FactoryEmitter
     public const string Provider = "sp";
 
     /// <summary>
-    /// Writes <c>static sp =&gt; new Handler(…)</c>, the factory of a handler that can be constructed directly.
+    /// Writes <c>(Func&lt;IServiceProvider, TService&gt;)(static sp =&gt; new Handler(…))</c>, the factory of a handler that
+    /// can be constructed directly. The delegate is typed with the service type, so the decorator wrapping it calls it
+    /// without a cast (see <see cref="WriteApplyMethod"/>).
     /// </summary>
-    public static void WriteHandlerFactory(SourceWriter w, string handlerType, ConstructorPlan constructor)
+    public static void WriteHandlerFactory(SourceWriter w, string serviceType, string handlerType, ConstructorPlan constructor)
     {
-        w.Append("static ").Append(Provider).Append(" => ");
-        WriteNew(w, handlerType, constructor, decoratorHandlerInterface: null);
+        w.Append("(").Append(WellKnownTypes.Func).Append('<').Append(WellKnownTypes.ServiceProvider).Append(", ").Append(serviceType)
+            .Append(">)(static ").Append(Provider).Append(" => ");
+        WriteNew(w, handlerType, constructor, isDecorator: false);
+        w.Append(')');
     }
 
     /// <summary>
@@ -63,14 +67,22 @@ internal static class FactoryEmitter
                 return;
             }
 
-            w.AppendLine("var innerFactory = CreateInnerFactory(inner);");
+            var typedFactory = WellKnownTypes.Func + "<" + WellKnownTypes.ServiceProvider + ", " + handlerInterface + ">";
+
+            // Generated handler factories and apply methods return delegates typed with the handler interface, so the
+            // inner one is called without an interface cast: measured about 5 ns less per resolution of a three-layer
+            // pipeline under JIT and NativeAOT (docs/modular-monolith-analysis.md, section 4.1). Any other registration
+            // is cast per resolution.
+            w.AppendLine("var factory = CreateInnerFactory(inner);");
+            w.Append("var innerFactory = factory as ").Append(typedFactory).Append(" ?? (").Append(Provider).Append(" => (")
+                .Append(handlerInterface).Append(")factory(").Append(Provider).AppendLine("));");
             w.Append("return ").Append(WellKnownTypes.ServiceDescriptor).AppendLine(".Describe(");
             using (w.Indent())
             {
                 w.AppendLine("inner.ServiceType,");
-                w.Append(Provider).Append(" => ");
-                WriteNew(w, decoratorType, decorator.Constructor, handlerInterface);
-                w.AppendLine(",");
+                w.Append('(').Append(typedFactory).Append(")(").Append(Provider).Append(" => ");
+                WriteNew(w, decoratorType, decorator.Constructor, isDecorator: true);
+                w.AppendLine("),");
                 w.AppendLine("inner.Lifetime);");
             }
         }
@@ -80,7 +92,7 @@ internal static class FactoryEmitter
     /// Writes <c>new T(arg1, …)</c> without a trailing separator. Arguments go on their own lines; for decorators,
     /// the <c>{TRequest}</c>/<c>{TResponse}</c> placeholders become the apply method's type parameters.
     /// </summary>
-    private static void WriteNew(SourceWriter w, string type, ConstructorPlan constructor, string? decoratorHandlerInterface)
+    private static void WriteNew(SourceWriter w, string type, ConstructorPlan constructor, bool isDecorator)
     {
         w.Append("new ").Append(type).Append('(');
 
@@ -97,23 +109,21 @@ internal static class FactoryEmitter
             for (var i = 0; i < arguments.Length; i++)
             {
                 if (i > 0) w.AppendLine(",");
-                WriteArgument(w, arguments[i], decoratorHandlerInterface);
+                WriteArgument(w, arguments[i], isDecorator);
             }
 
             w.Append(')');
         }
     }
 
-    private static void WriteArgument(SourceWriter w, ConstructorArgument argument, string? decoratorHandlerInterface)
+    private static void WriteArgument(SourceWriter w, ConstructorArgument argument, bool isDecorator)
     {
-        var type = decoratorHandlerInterface is null
-            ? argument.Type
-            : ConstraintSerializer.Substitute(argument.Type, "TRequest", "TResponse");
+        var type = isDecorator ? ConstraintSerializer.Substitute(argument.Type, "TRequest", "TResponse") : argument.Type;
 
         switch (argument.Kind)
         {
             case ConstructorArgumentKind.InnerHandler:
-                w.Append('(').Append(decoratorHandlerInterface!).Append(")innerFactory(").Append(Provider).Append(')');
+                w.Append("innerFactory(").Append(Provider).Append(')');
                 break;
 
             case ConstructorArgumentKind.ServiceProvider:

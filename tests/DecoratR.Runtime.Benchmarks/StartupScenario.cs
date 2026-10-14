@@ -34,7 +34,7 @@ public sealed record StartupEntry(HandlerRegistration Registration, Func<Service
         new HandlerRegistration(
             typeof(IRequestHandler<KeyedRequest<TKey>, int>),
             typeof(KeyedHandler<TKey>),
-            static sp => new KeyedHandler<TKey>(sp.GetRequiredService<Repository>())),
+            (Func<IServiceProvider, IRequestHandler<KeyedRequest<TKey>, int>>)(static sp => new KeyedHandler<TKey>(sp.GetRequiredService<Repository>()))),
         static descriptor =>
         {
             descriptor = DecoratRDecoratorRegistry.ApplyDecoratR_Runtime_Benchmarks_InnerDecorator<KeyedRequest<TKey>, int>(descriptor);

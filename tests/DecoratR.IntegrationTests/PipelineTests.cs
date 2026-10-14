@@ -231,21 +231,25 @@ public class PipelineTests
         var manualTrace = new ExecutionTrace();
         var (provider, trace) = Build(extra: services =>
         {
+            // Typed factory (used as is), untyped factory (cast per resolution), instance, implementation type
+            // (ActivatorUtilities on the first resolution).
             services.AddTransient<IRequestHandler<HostQuery, int>>(_ => new HostQueryHandler(manualTrace));
+            services.Add(ServiceDescriptor.Describe(typeof(IRequestHandler<HostQuery, int>), _ => new HostQueryHandler(manualTrace), ServiceLifetime.Transient));
             services.AddSingleton<IRequestHandler<HostQuery, int>>(new HostQueryHandler(manualTrace));
+            services.AddTransient<IRequestHandler<HostQuery, int>, HostQueryHandler>();
         });
         using var _ = provider;
 
         var handlers = provider.GetServices<IRequestHandler<HostQuery, int>>().ToList();
-        handlers.Should().HaveCount(3, "the two manual registrations and the generated one are all decorated");
+        handlers.Should().HaveCount(5, "the four manual registrations and the generated one are all decorated");
         handlers.Should().AllBeOfType<HostOuterDecorator<HostQuery, int>>();
 
         foreach (var handler in handlers)
             await handler.HandleAsync(new HostQuery(), TestContext.Current.CancellationToken);
 
-        manualTrace.Entries.Should().Equal("HostQueryHandler", "HostQueryHandler");
-        trace.Entries.Count(e => e == "HostQueryHandler").Should().Be(1);
-        trace.Entries.Count(e => e == "HostOuterDecorator:enter").Should().Be(3);
+        manualTrace.Entries.Should().Equal("HostQueryHandler", "HostQueryHandler", "HostQueryHandler");
+        trace.Entries.Count(e => e == "HostQueryHandler").Should().Be(2, "the generated and the implementation type registration use the shared trace");
+        trace.Entries.Count(e => e == "HostOuterDecorator:enter").Should().Be(5);
     }
 
     [Fact]

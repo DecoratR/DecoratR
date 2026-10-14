@@ -13,7 +13,7 @@ public class StreamHandlerDiscoveryTests : GeneratorTestBase
         var registry = RunGenerator(TestSources.StreamHandlerOnly()).ShouldCompile().HandlerRegistry;
 
         registry.Should().Contain("new(typeof(global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>), typeof(global::TestStreamQueryHandler),");
-        registry.Should().Contain("static sp => new global::TestStreamQueryHandler()),");
+        registry.Should().Contain("(global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>>)(static sp => new global::TestStreamQueryHandler())),");
         registry.Should().Contain("[assembly: global::DecoratR.Metadata.DecoratRHandler(\"global::TestStreamQueryHandler\", \"global::TestStreamQuery\", \"string\", true, ");
     }
 

@@ -38,18 +38,18 @@ public static class DecoratRHandlerRegistry
     private static readonly global::DecoratR.Metadata.HandlerRegistration[] Registrations =
     [
         new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.CreateUser, int>), typeof(global::Sample.Library.CreateUserHandler),
-            static sp => new global::Sample.Library.CreateUserHandler(
-                global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::Sample.Library.IUserStore>(sp))),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<global::Sample.Library.CreateUser, int>>)(static sp => new global::Sample.Library.CreateUserHandler(
+                global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::Sample.Library.IUserStore>(sp)))),
         new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>), typeof(global::Sample.Library.DeleteUserHandler),
-            static sp => new global::Sample.Library.DeleteUserHandler()),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>>)(static sp => new global::Sample.Library.DeleteUserHandler())),
         new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser>), typeof(global::DecoratR.VoidRequestHandler<global::Sample.Library.DeleteUser>),
             static sp => new global::DecoratR.VoidRequestHandler<global::Sample.Library.DeleteUser>(global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::DecoratR.IRequestHandler<global::Sample.Library.DeleteUser, global::DecoratR.Unit>>(sp))),
         new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetReport, string>), typeof(global::Sample.Library.GetReportHandler)), // registered by implementation type: the constructor cannot be called directly
         new(typeof(global::DecoratR.IRequestHandler<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>), typeof(global::Sample.Library.GetUsersHandler),
-            static sp => new global::Sample.Library.GetUsersHandler(
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<global::Sample.Library.GetUsers, global::System.Collections.Generic.IReadOnlyList<string>>>)(static sp => new global::Sample.Library.GetUsersHandler(
                 global::Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetRequiredKeyedService<global::Sample.Library.IUserStore>(sp, "readonly"),
-                sp)),
+                sp))),
         new(typeof(global::DecoratR.IStreamRequestHandler<global::Sample.Library.StreamUsers, string>), typeof(global::Sample.Library.StreamUsersHandler),
-            static sp => new global::Sample.Library.StreamUsersHandler()),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<global::Sample.Library.StreamUsers, string>>)(static sp => new global::Sample.Library.StreamUsersHandler())),
     ];
 }

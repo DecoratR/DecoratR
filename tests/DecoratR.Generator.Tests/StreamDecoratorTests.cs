@@ -14,7 +14,7 @@ public class StreamDecoratorTests : GeneratorTestBase
 
         registry.Should().Contain("ApplyStreamLoggingDecorator<TRequest, TResponse>(");
         registry.Should().Contain("sp => new global::StreamLoggingDecorator<TRequest, TResponse>(");
-        registry.Should().Contain("(global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)innerFactory(sp)");
+        registry.Should().Contain("factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>>");
         registry.Should().Contain("where TRequest : global::DecoratR.IStreamRequest");
     }
 
@@ -32,7 +32,7 @@ public class StreamDecoratorTests : GeneratorTestBase
         var registry = RunGenerator(TestSources.HandlerOnly(TestSources.Decorator("LoggingDecorator", 1))).ShouldCompile().DecoratorRegistry;
 
         registry.Should().Contain("\"global::LoggingDecorator\", 1, false, ");
-        registry.Should().Contain("(global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp)");
+        registry.Should().Contain("factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>");
         registry.Should().NotContain("IStreamRequestHandler");
     }
 
@@ -68,7 +68,7 @@ public class StreamDecoratorTests : GeneratorTestBase
 
         registry.Should().Contain("ApplyRegularDecorator<TRequest, TResponse>(");
         registry.Should().Contain("ApplyStreamDecorator<TRequest, TResponse>(");
-        registry.Should().Contain("(global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp)");
-        registry.Should().Contain("(global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)innerFactory(sp)");
+        registry.Should().Contain("factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>");
+        registry.Should().Contain("factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>>");
     }
 }

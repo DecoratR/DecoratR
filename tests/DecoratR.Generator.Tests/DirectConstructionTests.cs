@@ -46,10 +46,10 @@ public class DirectConstructionTests : GeneratorTestBase
             """);
 
         Factory(result).Should().Contain($$"""
-                        static sp => new global::Handler(
+                        (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<global::Cmd, string>>)(static sp => new global::Handler(
                             {{GetRequiredService}}<global::IStore>(sp),
                             sp,
-                            {{GetRequiredService}}<global::System.Collections.Generic.IEnumerable<global::IStore>>(sp)),
+                            {{GetRequiredService}}<global::System.Collections.Generic.IEnumerable<global::IStore>>(sp))),
             """);
     }
 
@@ -154,7 +154,7 @@ public class DirectConstructionTests : GeneratorTestBase
             }
             """);
 
-        Factory(result).Should().Contain($"static sp => new global::Handler(\n                {GetRequiredService}<global::IStore>(sp)),".ReplaceLineEndings());
+        Factory(result).Should().Contain($"static sp => new global::Handler(\n                {GetRequiredService}<global::IStore>(sp))),".ReplaceLineEndings());
     }
 
     [Fact]
@@ -209,10 +209,10 @@ public class DirectConstructionTests : GeneratorTestBase
             """)).ShouldCompile();
 
         result.Registrations.Should().Contain($$"""
-                        sp => new global::AuditDecorator<TResponse, TRequest>(
+                        (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>)(sp => new global::AuditDecorator<TResponse, TRequest>(
                             {{GetRequiredService}}<global::IAudit<TRequest>>(sp),
-                            (global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp),
-                            {{GetRequiredService}}<global::IAudit<global::AuditDecorator<TResponse, TRequest>>>(sp)),
+                            innerFactory(sp),
+                            {{GetRequiredService}}<global::IAudit<global::AuditDecorator<TResponse, TRequest>>>(sp))),
             """);
         GeneratedWarnings(result).Should().BeEmpty();
     }

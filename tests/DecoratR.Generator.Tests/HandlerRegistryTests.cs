@@ -17,7 +17,7 @@ public class HandlerRegistryTests : GeneratorTestBase
         registry.Should().Contain("private static readonly global::DecoratR.Metadata.HandlerRegistration[] Registrations =");
         registry.Should().Contain("""
                     new(typeof(global::DecoratR.IRequestHandler<global::TestCommand, string>), typeof(global::TestCommandHandler),
-                        static sp => new global::TestCommandHandler()),
+                        (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<global::TestCommand, string>>)(static sp => new global::TestCommandHandler())),
             """);
         registry.Should().NotContain("record HandlerRegistration", "the registration type lives in DecoratR.Abstractions");
         registry.Should().NotContain("IServiceCollection");

@@ -44,12 +44,12 @@ public static class DecoratRServiceCollectionExtensions
         // Handlers declared in this assembly, each with a validation registration for ValidateOnBuild
         services.Add(global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             typeof(global::DecoratR.IRequestHandler<global::TestCommand, string>),
-            static sp => new global::TestCommandHandler(),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<global::TestCommand, string>>)(static sp => new global::TestCommandHandler()),
             lifetime));
         services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(typeof(global::TestCommandHandler), global::DecoratR.Metadata.DecoratRServiceKeys.Validation, typeof(global::TestCommandHandler), lifetime));
         services.Add(global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             typeof(global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>),
-            static sp => new global::TestStreamQueryHandler(),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>>)(static sp => new global::TestStreamQueryHandler()),
             lifetime));
         services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(typeof(global::TestStreamQueryHandler), global::DecoratR.Metadata.DecoratRServiceKeys.Validation, typeof(global::TestStreamQueryHandler), lifetime));
 
@@ -78,11 +78,12 @@ public static class DecoratRServiceCollectionExtensions
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
         where TRequest : global::DecoratR.IRequest
     {
-        var innerFactory = CreateInnerFactory(inner);
+        var factory = CreateInnerFactory(inner);
+        var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IRequestHandler<TRequest, TResponse>)factory(sp));
         return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             inner.ServiceType,
-            sp => new global::LoggingDecorator<TRequest, TResponse>(
-                (global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp)),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>)(sp => new global::LoggingDecorator<TRequest, TResponse>(
+                innerFactory(sp))),
             inner.Lifetime);
     }
 
@@ -93,11 +94,12 @@ public static class DecoratRServiceCollectionExtensions
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
         where TRequest : global::DecoratR.IStreamRequest
     {
-        var innerFactory = CreateInnerFactory(inner);
+        var factory = CreateInnerFactory(inner);
+        var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)factory(sp));
         return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             inner.ServiceType,
-            sp => new global::StreamLoggingDecorator<TRequest, TResponse>(
-                (global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)innerFactory(sp)),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>>)(sp => new global::StreamLoggingDecorator<TRequest, TResponse>(
+                innerFactory(sp))),
             inner.Lifetime);
     }
 
@@ -108,11 +110,12 @@ public static class DecoratRServiceCollectionExtensions
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
         where TRequest : global::DecoratR.IRequest
     {
-        var innerFactory = CreateInnerFactory(inner);
+        var factory = CreateInnerFactory(inner);
+        var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IRequestHandler<TRequest, TResponse>)factory(sp));
         return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             inner.ServiceType,
-            sp => new global::ValidationDecorator<TRequest, TResponse>(
-                (global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp)),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>)(sp => new global::ValidationDecorator<TRequest, TResponse>(
+                innerFactory(sp))),
             inner.Lifetime);
     }
 

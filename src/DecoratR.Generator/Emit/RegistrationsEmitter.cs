@@ -195,7 +195,7 @@ internal static class RegistrationsEmitter
             using (w.Indent())
             {
                 w.Append(serviceType).AppendLine(",");
-                FactoryEmitter.WriteHandlerFactory(w, handler.HandlerType, handler.Constructor);
+                FactoryEmitter.WriteHandlerFactory(w, handler.ServiceType.ConstructedInterface, handler.HandlerType, handler.Constructor);
                 w.AppendLine(",");
                 w.AppendLine("lifetime));");
             }

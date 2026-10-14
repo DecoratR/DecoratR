@@ -81,6 +81,6 @@ public class StreamCrossAssemblyTests : GeneratorTestBase
         host.ShouldCompile();
         host.Registrations.GetPipeline("global::TestStreamQuery", "string", isStream: true)
             .Should().Contain("descriptor = ApplyLocalStreamDecorator<global::TestStreamQuery, string>(descriptor);");
-        host.Registrations.Should().Contain("(global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)innerFactory(sp)");
+        host.Registrations.Should().Contain("factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>>");
     }
 }

@@ -27,12 +27,13 @@ public static class DecoratRDecoratorRegistry
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
         where TRequest : global::DecoratR.IRequest
     {
-        var innerFactory = CreateInnerFactory(inner);
+        var factory = CreateInnerFactory(inner);
+        var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IRequestHandler<TRequest, TResponse>)factory(sp));
         return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             inner.ServiceType,
-            sp => new global::Sample.Library.LoggingDecorator<TRequest, TResponse>(
-                (global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp),
-                global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::Sample.Library.IAudit<global::Sample.Library.LoggingDecorator<TRequest, TResponse>>>(sp)),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>)(sp => new global::Sample.Library.LoggingDecorator<TRequest, TResponse>(
+                innerFactory(sp),
+                global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::Sample.Library.IAudit<global::Sample.Library.LoggingDecorator<TRequest, TResponse>>>(sp))),
             inner.Lifetime);
     }
 
@@ -43,11 +44,12 @@ public static class DecoratRDecoratorRegistry
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
         where TRequest : global::DecoratR.IStreamRequest
     {
-        var innerFactory = CreateInnerFactory(inner);
+        var factory = CreateInnerFactory(inner);
+        var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)factory(sp));
         return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             inner.ServiceType,
-            sp => new global::Sample.Library.StreamLoggingDecorator<TRequest, TResponse>(
-                (global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)innerFactory(sp)),
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>>)(sp => new global::Sample.Library.StreamLoggingDecorator<TRequest, TResponse>(
+                innerFactory(sp))),
             inner.Lifetime);
     }
 

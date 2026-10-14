@@ -223,4 +223,5 @@ internal static class RuntimeHelpersEmitter
                 .Append(FactoryEmitter.Provider).AppendLine(", null);");
         }
     }
+
 }

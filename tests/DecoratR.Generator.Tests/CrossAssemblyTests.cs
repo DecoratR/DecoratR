@@ -277,11 +277,12 @@ public class CrossAssemblyTests : GeneratorTestBase
 
         registry.Should().Contain("public static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor ApplyLoggingDecorator<TRequest, TResponse>(");
         registry.GetApplyMethod("ApplyLoggingDecorator").Should().Contain("""
-                    var innerFactory = CreateInnerFactory(inner);
+                    var factory = CreateInnerFactory(inner);
+                    var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IRequestHandler<TRequest, TResponse>)factory(sp));
                     return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
                         inner.ServiceType,
-                        sp => new global::LoggingDecorator<TRequest, TResponse>(
-                            (global::DecoratR.IRequestHandler<TRequest, TResponse>)innerFactory(sp)),
+                        (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>)(sp => new global::LoggingDecorator<TRequest, TResponse>(
+                            innerFactory(sp))),
                         inner.Lifetime);
             """);
         registry.Should().Contain("CreateInnerFactory(");

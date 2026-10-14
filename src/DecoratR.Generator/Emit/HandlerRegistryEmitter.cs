@@ -81,7 +81,7 @@ internal static class HandlerRegistryEmitter
         }
 
         w.AppendLine(",");
-        using (w.Indent()) FactoryEmitter.WriteHandlerFactory(w, handler.HandlerType, handler.Constructor);
+        using (w.Indent()) FactoryEmitter.WriteHandlerFactory(w, handler.ServiceType.ConstructedInterface, handler.HandlerType, handler.Constructor);
         w.AppendLine("),");
     }
 
