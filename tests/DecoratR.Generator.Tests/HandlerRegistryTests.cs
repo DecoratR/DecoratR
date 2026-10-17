@@ -13,8 +13,13 @@ public class HandlerRegistryTests : GeneratorTestBase
         var registry = RunGenerator(TestSources.HandlerOnly()).ShouldCompile().HandlerRegistry;
 
         registry.Should().Contain("public static class DecoratRHandlerRegistry");
-        registry.Should().Contain("public static HandlerRegistration[] Handlers { get; } =");
-        registry.Should().Contain("new(typeof(global::DecoratR.IRequestHandler<global::TestCommand, string>), typeof(global::TestCommandHandler)),");
+        registry.Should().Contain("public static global::System.ReadOnlySpan<global::DecoratR.Metadata.HandlerRegistration> Handlers => Registrations;");
+        registry.Should().Contain("private static readonly global::DecoratR.Metadata.HandlerRegistration[] Registrations =");
+        registry.Should().Contain("""
+                    new(typeof(global::DecoratR.IRequestHandler<global::TestCommand, string>), typeof(global::TestCommandHandler),
+                        (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<global::TestCommand, string>>)(static sp => new global::TestCommandHandler())),
+            """);
+        registry.Should().NotContain("record HandlerRegistration", "the registration type lives in DecoratR.Abstractions");
         registry.Should().NotContain("IServiceCollection");
     }
 

@@ -14,8 +14,11 @@ public class CrossAssemblyTests : GeneratorTestBase
 
         host.ShouldCompile();
         host.Registrations.Should().Contain("// Handlers from referenced assemblies");
-        host.Registrations.Should().Contain("foreach (var handler in global::HandlerLib.DecoratRHandlerRegistry.Handlers)");
-        host.Registrations.Should().Contain("services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ServiceType, handler.ImplementationType, options.Lifetime));");
+        host.Registrations.Should().Contain("AddHandlers(services, global::HandlerLib.DecoratRHandlerRegistry.Handlers, lifetime);");
+        host.Registrations.Should().Contain("foreach (ref readonly var handler in handlers)");
+        host.Registrations.Should().Contain("? global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(handler.ServiceType, factory, lifetime)");
+        host.Registrations.Should().Contain(": new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ServiceType, handler.ImplementationType, lifetime));");
+        host.Registrations.Should().Contain("services.Add(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(handler.ImplementationType, global::DecoratR.Metadata.DecoratRServiceKeys.Validation, handler.ImplementationType, lifetime));");
     }
 
     [Fact]
@@ -51,7 +54,8 @@ public class CrossAssemblyTests : GeneratorTestBase
 
         host.ShouldCompile();
         host.Registrations.GetPipeline("global::TestCommand", "string").GetPipelineSteps().Should().ContainSingle()
-            .Which.Should().Be("descriptor = Wrap<global::DecoratR.IRequestHandler<global::TestCommand, string>, global::LoggingDecorator<global::TestCommand, string>>(descriptor); // Order 1");
+            .Which.Should().Be("descriptor = ApplyLoggingDecorator<global::TestCommand, string>(descriptor); // Order 1");
+        host.Registrations.Should().Contain("private static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor ApplyLoggingDecorator<TRequest, TResponse>(");
     }
 
     [Fact]
@@ -170,7 +174,7 @@ public class CrossAssemblyTests : GeneratorTestBase
         host.ShouldCompile();
         var steps = host.Registrations.GetPipeline("global::Aaa.Cmd", "string").GetPipelineSteps();
         steps[0].Should().Contain("ApplyZzz_Dec", "Zzz.Dec sorts after Aaa.Dec, so it is innermost and applied first");
-        steps[1].Should().Contain("global::Aaa.Dec<", "Aaa.Dec sorts first, so it is outermost and applied last");
+        steps[1].Should().StartWith("descriptor = ApplyAaa_Dec<", "Aaa.Dec sorts first, so it is outermost and applied last");
     }
 
     [Fact]
@@ -272,10 +276,18 @@ public class CrossAssemblyTests : GeneratorTestBase
         var registry = RunGenerator(TestSources.HandlerOnly(TestSources.Decorator("LoggingDecorator", 1)), "HandlerLib").ShouldCompile().DecoratorRegistry;
 
         registry.Should().Contain("public static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor ApplyLoggingDecorator<TRequest, TResponse>(");
-        registry.Should().Contain("return Wrap<global::DecoratR.IRequestHandler<TRequest, TResponse>, global::LoggingDecorator<TRequest, TResponse>>(inner);");
-        registry.Should().Contain("private static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor Wrap<TService, [");
-        registry.Should().Contain("DynamicallyAccessedMembers");
+        registry.GetApplyMethod("ApplyLoggingDecorator").Should().Contain("""
+                    var factory = CreateInnerFactory(inner);
+                    var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IRequestHandler<TRequest, TResponse>)factory(sp));
+                    return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
+                        inner.ServiceType,
+                        (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>)(sp => new global::LoggingDecorator<TRequest, TResponse>(
+                            innerFactory(sp))),
+                        inner.Lifetime);
+            """);
         registry.Should().Contain("CreateInnerFactory(");
+        registry.Should().NotContain("Wrap<", "every decorator is constructed directly; the ActivatorUtilities fallback is only emitted when needed");
+        registry.Should().NotContain("DynamicallyAccessedMembers");
         registry.Should().NotContain("Decorate(", "libraries only wrap descriptors; the composition root owns the service collection");
     }
 

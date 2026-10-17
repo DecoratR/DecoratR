@@ -25,6 +25,7 @@ internal static class WellKnownTypes
     public const string RegistryAttributeName = "DecoratRRegistryAttribute";
     public const string HandlerAttributeName = "DecoratRHandlerAttribute";
     public const string DecoratorMetadataAttributeName = "DecoratRDecoratorAttribute";
+    public const string HandlersPropertyName = "Handlers";
 
     public const string ServiceCollectionMetadataName = "Microsoft.Extensions.DependencyInjection.IServiceCollection";
 
@@ -38,10 +39,21 @@ internal static class WellKnownTypes
     public const string RegistryAttribute = "global::DecoratR.Metadata.DecoratRRegistry";
     public const string HandlerAttribute = "global::DecoratR.Metadata.DecoratRHandler";
     public const string DecoratorMetadataAttribute = "global::DecoratR.Metadata.DecoratRDecorator";
+    public const string HandlerRegistration = "global::DecoratR.Metadata.HandlerRegistration";
+    public const string ValidationKey = "global::DecoratR.Metadata.DecoratRServiceKeys.Validation";
 
     public const string ServiceCollection = "global::Microsoft.Extensions.DependencyInjection.IServiceCollection";
     public const string ServiceDescriptor = "global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor";
     public const string ActivatorUtilities = "global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities";
+    public const string ObjectFactory = "global::Microsoft.Extensions.DependencyInjection.ObjectFactory";
+    public const string ServiceLifetime = "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime";
+    public const string GetRequiredService = "global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService";
+    public const string GetRequiredKeyedService = "global::Microsoft.Extensions.DependencyInjection.ServiceProviderKeyedServiceExtensions.GetRequiredKeyedService";
+    public const string Dictionary = "global::System.Collections.Generic.Dictionary";
+    public const string ReadOnlySpan = "global::System.ReadOnlySpan";
+    public const string CollectionsMarshal = "global::System.Runtime.InteropServices.CollectionsMarshal";
+    public const string Unsafe = "global::System.Runtime.CompilerServices.Unsafe";
+    public const string List = "global::System.Collections.Generic.List";
     public const string ServiceProvider = "global::System.IServiceProvider";
     public const string Type = "global::System.Type";
     public const string Func = "global::System.Func";

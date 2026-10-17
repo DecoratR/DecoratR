@@ -43,11 +43,13 @@ public class VoidHandlerTests : GeneratorTestBase
     {
         var result = RunGenerator(TestSources.HandlerOnly(VoidCommand)).ShouldCompile();
 
-        result.HandlerRegistry.Should().Contain($"new(typeof({UnitService}), typeof(global::DeleteCommandHandler))");
-        result.HandlerRegistry.Should().Contain($"new(typeof({FacadeService}), typeof({FacadeImplementation}))");
+        result.HandlerRegistry.Should().Contain($"new(typeof({UnitService}), typeof(global::DeleteCommandHandler),");
+        result.HandlerRegistry.Should().Contain($"new(typeof({FacadeService}), typeof({FacadeImplementation}),");
+        result.HandlerRegistry.Should().Contain(
+            $"static sp => new {FacadeImplementation}(global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{UnitService}>(sp))");
         result.HandlerRegistry.Should().Contain(
             "DecoratRHandler(\"global::DeleteCommandHandler\", \"global::DeleteCommand\", \"global::DecoratR.Unit\", false");
-        result.HandlerRegistry.CountOccurrences("VoidRequestHandler").Should().Be(1);
+        result.HandlerRegistry.CountOccurrences("VoidRequestHandler").Should().Be(2, "the facade entry names it as implementation type and constructs it");
     }
 
     [Fact]
@@ -56,8 +58,8 @@ public class VoidHandlerTests : GeneratorTestBase
         var result = RunGenerator(TestSources.FullPath(VoidCommand + "\n" + TestSources.Decorator("LoggingDecorator", 1))).ShouldCompile();
 
         result.Registrations.GetPipeline("global::DeleteCommand", "global::DecoratR.Unit")
-            .Should().Contain("global::LoggingDecorator<global::DeleteCommand, global::DecoratR.Unit>");
-        result.Registrations.Should().NotContain($"Decorate(services, typeof({FacadeService})");
+            .Should().Contain("ApplyLoggingDecorator<global::DeleteCommand, global::DecoratR.Unit>(descriptor)");
+        result.Registrations.Should().NotContain($"pipelines.Add(typeof({FacadeService})");
     }
 
     [Fact]
@@ -69,7 +71,7 @@ public class VoidHandlerTests : GeneratorTestBase
             TestSources.Decorator("StructOnlyDecorator", 2, responseConstraint: "struct"))).ShouldCompile();
 
         var pipeline = result.Registrations.GetPipeline("global::DeleteCommand", "global::DecoratR.Unit");
-        pipeline.Should().Contain("global::StructOnlyDecorator<global::DeleteCommand, global::DecoratR.Unit>");
+        pipeline.Should().Contain("ApplyStructOnlyDecorator<global::DeleteCommand, global::DecoratR.Unit>(descriptor)");
         pipeline.Should().NotContain("ClassOnlyDecorator");
     }
 
@@ -84,7 +86,7 @@ public class VoidHandlerTests : GeneratorTestBase
         library.HandlerRegistry.Should().Contain(FacadeImplementation);
         host.Registrations.Should().Contain("global::HandlerLib.DecoratRHandlerRegistry.Handlers");
         host.Registrations.GetPipeline("global::DeleteCommand", "global::DecoratR.Unit")
-            .Should().Contain("global::HostDecorator<global::DeleteCommand, global::DecoratR.Unit>");
+            .Should().Contain("ApplyHostDecorator<global::DeleteCommand, global::DecoratR.Unit>(descriptor)");
         host.Registrations.Should().NotContain("VoidRequestHandler");
     }
 
@@ -118,7 +120,7 @@ public class VoidHandlerTests : GeneratorTestBase
             """)).ShouldCompile();
 
         result.Registrations.Should().Contain("typeof(global::DecoratR.IRequestHandler<global::DeleteCommand, string>)");
-        result.Registrations.CountOccurrences("VoidRequestHandler").Should().Be(1);
+        result.Registrations.CountOccurrences("new global::DecoratR.VoidRequestHandler<").Should().Be(1);
     }
 
     [Fact]

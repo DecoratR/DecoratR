@@ -420,8 +420,23 @@ Important behavior:
 1. The default lifetime is `Transient`.
 2. Local handlers are registered directly in the generated host method; referenced handlers are registered through the generated registries of their assemblies.
 3. Decorators inherit the lifetime of the registration they wrap.
-4. Decoration replaces every registration of a service type, including registrations you added yourself before calling `AddDecoratR()` (factory and instance registrations included). Keyed registrations are left untouched.
-5. Decorator and handler instances are created through `ActivatorUtilities`. Constructor selection happens once per registration when `AddDecoratR()` runs, not on every resolution.
+4. Decoration replaces every registration of a service type, including registrations you added yourself before calling `AddDecoratR()` (factory, instance and implementation type registrations). Keyed registrations are left untouched.
+5. Handlers and decorators are created by generated code, without reflection or runtime compilation: `new CreateOrderHandler(sp.GetRequiredService<IOrderRepository>())`. Resolving a pipeline allocates exactly the handler and decorator instances. See [Constructor rules](#constructor-rules).
+6. `ValidateOnBuild` and `ValidateScopes` cover decorated handlers. For every handler, `AddDecoratR()` adds a keyed registration of the handler type under the key `DecoratRServiceKeys.Validation` (`"DecoratR.Validation"`). It is never resolved; it only lets the container check the handler's constructor dependencies, which it cannot see through the factory registration of the decorated pipeline. A missing dependency (for example a module whose `AddXModule()` call was forgotten) or a scoped dependency captured by a `Singleton` pipeline is reported when the provider is built, not on the first request. Decorator dependencies are not validated this way yet. The keyed registrations are visible when you enumerate the service collection or resolve with `KeyedService.AnyKey`.
+7. Calling `AddDecoratR()` more than once has no further effect: later calls return immediately and do not invoke their `configure` callback.
+
+### Constructor rules
+
+The generator calls a constructor directly when the type has exactly one public constructor, or exactly one constructor marked with `[ActivatorUtilitiesConstructor]`, and every parameter is one of the following:
+
+| Parameter | Generated argument |
+|-----------|--------------------|
+| any service type, including `IEnumerable<T>` and `ILogger<T>` | `GetRequiredService<T>(sp)` |
+| `[FromKeyedServices(key)]` with a constant key (string, integral number, `bool`, `char`, enum, `typeof(…)`) | `GetRequiredKeyedService<T>(sp, key)` |
+| `IServiceProvider` | the resolving provider |
+| the handler interface (decorators only, exactly one such parameter) | the inner handler |
+
+Everything else falls back to `ActivatorUtilities`, without a diagnostic: several public constructors, optional, `params`, `ref`, `in` or `out` parameters, `[ServiceKey]` parameters, `[FromKeyedServices]` without an explicit key, and `required` members that the constructor does not set (`[SetsRequiredMembers]`). Such handlers are registered by implementation type, such decorators are created through `ActivatorUtilities.CreateFactory`; the constructor is selected once, on the first resolution. The generated handler registry marks these handlers with the comment `registered by implementation type`. Registrations you add yourself by implementation type are decorated the same way.
 
 ## What DecoratR Generates
 
@@ -431,14 +446,14 @@ The generated output depends on which assembly attribute you use. With `EmitComp
 
 Library projects receive generated metadata artifacts.
 
-1. `DecoratRHandlerRegistry.g.cs`: a static `DecoratRHandlerRegistry` class with a `Handlers` array (request and stream handlers) plus `[DecoratRRegistry]` and `[DecoratRHandler]` assembly attributes.
-2. `DecoratRDecoratorRegistry.g.cs`: a static `DecoratRDecoratorRegistry` class with one `Apply…<TRequest, TResponse>(ServiceDescriptor)` method per decorator plus `[DecoratRDecorator]` assembly attributes.
+1. `DecoratRHandlerRegistry.g.cs`: a static `DecoratRHandlerRegistry` class whose `Handlers` property is a `ReadOnlySpan<DecoratR.Metadata.HandlerRegistration>` (service type, implementation type and generated factory of every request and stream handler) plus `[DecoratRRegistry]` and `[DecoratRHandler]` assembly attributes.
+2. `DecoratRDecoratorRegistry.g.cs`: a static `DecoratRDecoratorRegistry` class with one `Apply…<TRequest, TResponse>(ServiceDescriptor)` method per decorator, which constructs the decorator around the wrapped registration, plus `[DecoratRDecorator]` assembly attributes.
 
 Both classes are placed in a namespace derived from the assembly name and hidden from IntelliSense. They are infrastructure for the composition root, not an API for application code.
 
 ### `GenerateDecoratRRegistrations`
 
-Host projects receive `DecoratRServiceCollectionExtensions.g.cs` with `AddDecoratR()` in the `Microsoft.Extensions.DependencyInjection` namespace. It registers local and referenced handlers and applies one decorator pipeline per service type.
+Host projects receive `DecoratRServiceCollectionExtensions.g.cs` with `AddDecoratR()` in the `Microsoft.Extensions.DependencyInjection` namespace. It registers local and referenced handlers (each with its validation registration) and applies one decorator pipeline per service type in a single pass over the service collection.
 
 You do not need to manually register each handler or decorator.
 
@@ -494,7 +509,7 @@ Warning. The composition root cannot apply decorators to a referenced service ty
 
 ### DCTR012
 
-Warning. A decorator has no public constructor with a parameter of the handler interface type. It is still applied, but resolving the pipeline will fail at runtime.
+Warning. A decorator has no public constructor with a parameter of the handler interface type. It is still applied through `ActivatorUtilities`, but resolving the pipeline will fail at runtime.
 
 ### DCTR013
 

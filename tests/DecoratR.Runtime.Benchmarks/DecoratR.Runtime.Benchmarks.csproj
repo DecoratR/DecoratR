@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WebApplication.CreateBuilder() provides a realistic set of framework registrations for the startup benchmarks. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DecoratR.Abstractions\DecoratR.Abstractions.csproj" />
+    <!-- The benchmarks run the code the generator emits today, so they track changes to the emitted code. -->
+    <ProjectReference Include="..\..\src\DecoratR.Generator\DecoratR.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

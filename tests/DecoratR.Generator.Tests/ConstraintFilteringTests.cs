@@ -63,9 +63,9 @@ public class ConstraintFilteringTests : GeneratorTestBase
             """).ShouldCompile().Registrations;
 
         var section = registrations.GetDecoratorSection();
-        section.CountOccurrences("global::LoggingDecorator<").Should().Be(2);
-        section.CountOccurrences("global::ValidationDecorator<").Should().Be(1);
-        section.Should().Contain("global::ValidationDecorator<global::CreateUserCommand, string>");
+        section.CountOccurrences("ApplyLoggingDecorator<global::").Should().Be(2);
+        section.CountOccurrences("ApplyValidationDecorator<global::").Should().Be(1);
+        section.Should().Contain("ApplyValidationDecorator<global::CreateUserCommand, string>(descriptor)");
     }
 
     [Fact]

@@ -27,7 +27,14 @@ public static class DecoratRDecoratorRegistry
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
         where TRequest : global::DecoratR.IRequest
     {
-        return Wrap<global::DecoratR.IRequestHandler<TRequest, TResponse>, global::Sample.Library.LoggingDecorator<TRequest, TResponse>>(inner);
+        var factory = CreateInnerFactory(inner);
+        var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IRequestHandler<TRequest, TResponse>)factory(sp));
+        return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
+            inner.ServiceType,
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IRequestHandler<TRequest, TResponse>>)(sp => new global::Sample.Library.LoggingDecorator<TRequest, TResponse>(
+                innerFactory(sp),
+                global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::Sample.Library.IAudit<global::Sample.Library.LoggingDecorator<TRequest, TResponse>>>(sp))),
+            inner.Lifetime);
     }
 
     /// <summary>
@@ -37,7 +44,13 @@ public static class DecoratRDecoratorRegistry
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
         where TRequest : global::DecoratR.IStreamRequest
     {
-        return Wrap<global::DecoratR.IStreamRequestHandler<TRequest, TResponse>, global::Sample.Library.StreamLoggingDecorator<TRequest, TResponse>>(inner);
+        var factory = CreateInnerFactory(inner);
+        var innerFactory = factory as global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>> ?? (sp => (global::DecoratR.IStreamRequestHandler<TRequest, TResponse>)factory(sp));
+        return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
+            inner.ServiceType,
+            (global::System.Func<global::System.IServiceProvider, global::DecoratR.IStreamRequestHandler<TRequest, TResponse>>)(sp => new global::Sample.Library.StreamLoggingDecorator<TRequest, TResponse>(
+                innerFactory(sp))),
+            inner.Lifetime);
     }
 
     /// <summary>
@@ -53,8 +66,8 @@ public static class DecoratRDecoratorRegistry
 
     /// <summary>
     /// Returns a descriptor with the lifetime of <paramref name="inner"/> that resolves <typeparamref name="TDecorator"/>
-    /// around the service created by <paramref name="inner"/>. Constructor dependencies are resolved from the provider;
-    /// constructor selection happens once per registration, not per resolution.
+    /// around the service created by <paramref name="inner"/> through <c>ActivatorUtilities</c>. The constructor is selected
+    /// once, on the first resolution, instead of at startup.
     /// </summary>
     private static global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor Wrap<TService, [global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor inner)
@@ -62,36 +75,34 @@ public static class DecoratRDecoratorRegistry
         where TDecorator : class, TService
     {
         var innerFactory = CreateInnerFactory(inner);
-        var decoratorFactory = global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateFactory(
-            typeof(TDecorator),
-            new global::System.Type[] { typeof(TService) });
+        global::Microsoft.Extensions.DependencyInjection.ObjectFactory? decoratorFactory = null;
 
         return global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor.Describe(
             inner.ServiceType,
-            provider => decoratorFactory(provider, new object?[] { innerFactory(provider) }),
+            sp => (decoratorFactory ??= global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateFactory(typeof(TDecorator), new global::System.Type[] { typeof(TService) }))(
+                sp,
+                new object?[] { innerFactory(sp) }),
             inner.Lifetime);
     }
 
     /// <summary>
-    /// Creates a factory for the service described by <paramref name="descriptor"/>.
+    /// Creates a factory for the service described by <paramref name="descriptor"/>. Registrations by implementation type
+    /// go through <c>ActivatorUtilities</c>; their constructor is selected on the first resolution instead of at startup.
     /// </summary>
     private static global::System.Func<global::System.IServiceProvider, object> CreateInnerFactory(
         global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor descriptor)
     {
-        if (descriptor.ImplementationFactory is not null)
+        if (descriptor.ImplementationFactory is { } implementationFactory)
         {
-            return descriptor.ImplementationFactory;
+            return implementationFactory;
         }
 
-        if (descriptor.ImplementationInstance is not null)
+        if (descriptor.ImplementationInstance is { } instance)
         {
-            var instance = descriptor.ImplementationInstance;
             return _ => instance;
         }
 
-        var factory = global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateFactory(
-            descriptor.ImplementationType!,
-            global::System.Type.EmptyTypes);
-        return provider => factory(provider, null);
+        global::Microsoft.Extensions.DependencyInjection.ObjectFactory? factory = null;
+        return sp => (factory ??= global::Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateFactory(descriptor.ImplementationType!, global::System.Type.EmptyTypes))(sp, null);
     }
 }

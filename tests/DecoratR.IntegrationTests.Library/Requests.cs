@@ -10,3 +10,9 @@ public sealed record LibraryQuery : IRequest;
 public sealed record LibraryVoidCommand : IRequest;
 
 public sealed record LibraryStream(int Count) : IStreamRequest;
+
+/// <summary>Marker for requests the host's <c>HostFallbackDecorator</c> applies to.</summary>
+public interface ITaggedRequest : IRequest;
+
+/// <summary>Handled by a handler whose constructor the generator does not call directly (optional parameter).</summary>
+public sealed record LibraryFallbackQuery(string Name) : ITaggedRequest;

@@ -22,7 +22,8 @@ public class StreamRegistrationTests : GeneratorTestBase
         var registrations = RunGenerator(TestSources.StreamFullPath(TestSources.StreamDecorator("StreamLoggingDecorator", 1))).ShouldCompile().Registrations;
 
         registrations.GetPipeline("global::TestStreamQuery", "string", isStream: true).Should().Contain(
-            "Wrap<global::DecoratR.IStreamRequestHandler<global::TestStreamQuery, string>, global::StreamLoggingDecorator<global::TestStreamQuery, string>>(descriptor);");
+            "descriptor = ApplyStreamLoggingDecorator<global::TestStreamQuery, string>(descriptor);");
+        registrations.Should().Contain("sp => new global::StreamLoggingDecorator<TRequest, TResponse>(");
     }
 
     [Fact]

@@ -16,6 +16,7 @@
     <Project Path="tests/DecoratR.IntegrationTests.Library/DecoratR.IntegrationTests.Library.csproj" />
     <Project Path="tests/DecoratR.IntegrationTests/DecoratR.IntegrationTests.csproj" />
     <Project Path="tests/DecoratR.Generator.Benchmarks/DecoratR.Generator.Benchmarks.csproj" />
+    <Project Path="tests/DecoratR.Runtime.Benchmarks/DecoratR.Runtime.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <Project Path="examples/shared/Examples.Shared.csproj" />

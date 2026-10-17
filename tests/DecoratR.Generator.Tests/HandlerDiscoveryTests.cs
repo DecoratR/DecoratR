@@ -164,7 +164,8 @@ public class HandlerDiscoveryTests : GeneratorTestBase
             }
             """).ShouldCompile();
 
-        result.Registrations.CountOccurrences("typeof(global::PartialHandler)").Should().Be(1);
+        result.Registrations.CountOccurrences("new global::PartialHandler(").Should().Be(1);
+        result.Registrations.CountLocalRegistrations().Should().Be(1);
         result.Diagnostic("DCTR002").GetMessage().Should().Contain("1 handler(s)");
     }
 
@@ -190,7 +191,8 @@ public class HandlerDiscoveryTests : GeneratorTestBase
             }
             """).ShouldCompile();
 
-        result.Registrations.CountOccurrences("typeof(global::PartialHandler)").Should().Be(1);
+        result.Registrations.CountOccurrences("new global::PartialHandler(").Should().Be(1);
+        result.Registrations.CountLocalRegistrations().Should().Be(1);
     }
 
     [Fact]
@@ -213,7 +215,8 @@ public class HandlerDiscoveryTests : GeneratorTestBase
 
         result.Registrations.Should().Contain("typeof(global::DecoratR.IRequestHandler<global::CommandA, string>)");
         result.Registrations.Should().Contain("typeof(global::DecoratR.IRequestHandler<global::CommandB, int>)");
-        result.Registrations.CountOccurrences("typeof(global::DualHandler)").Should().Be(2);
+        result.Registrations.CountOccurrences("static sp => new global::DualHandler()").Should().Be(2);
+        result.Registrations.CountLocalRegistrations().Should().Be(2);
     }
 
     [Fact]
